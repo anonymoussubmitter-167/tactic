@@ -1,0 +1,228 @@
+{
+  "id": "standard1",
+  "species_id": "s1",
+  "name": "ABTS",
+  "wavelength": 340.0,
+  "signal_type": "Absorbance",
+  "samples": [
+    {
+      "id": "D1",
+      "concentration": 0.0,
+      "conc_unit": "umol / l",
+      "signal": -0.0007393939393939469
+    },
+    {
+      "id": "D2",
+      "concentration": 5.0,
+      "conc_unit": "umol / l",
+      "signal": 0.07503333333333333
+    },
+    {
+      "id": "D3",
+      "concentration": 10.0,
+      "conc_unit": "umol / l",
+      "signal": 0.1617151515151515
+    },
+    {
+      "id": "D4",
+      "concentration": 15.0,
+      "conc_unit": "umol / l",
+      "signal": 0.2476787878787879
+    },
+    {
+      "id": "D5",
+      "concentration": 25.0,
+      "conc_unit": "umol / l",
+      "signal": 0.4214878787878788
+    },
+    {
+      "id": "D6",
+      "concentration": 50.0,
+      "conc_unit": "umol / l",
+      "signal": 0.8797787878787878
+    },
+    {
+      "id": "D7",
+      "concentration": 75.0,
+      "conc_unit": "umol / l",
+      "signal": 1.3035515151515151
+    },
+    {
+      "id": "D8",
+      "concentration": 100.0,
+      "conc_unit": "umol / l",
+      "signal": 1.752669696969697
+    },
+    {
+      "id": "D9",
+      "concentration": 150.0,
+      "conc_unit": "umol / l",
+      "signal": 2.6053242424242424
+    },
+    {
+      "id": "D10",
+      "concentration": 200.0,
+      "conc_unit": "umol / l",
+      "signal": 3.2500424242424244
+    },
+    {
+      "id": "E1",
+      "concentration": 0.0,
+      "conc_unit": "umol / l",
+      "signal": -0.00040303030303030974
+    },
+    {
+      "id": "E2",
+      "concentration": 5.0,
+      "conc_unit": "umol / l",
+      "signal": 0.06594242424242423
+    },
+    {
+      "id": "E3",
+      "concentration": 10.0,
+      "conc_unit": "umol / l",
+      "signal": 0.15559696969696968
+    },
+    {
+      "id": "E4",
+      "concentration": 15.0,
+      "conc_unit": "umol / l",
+      "signal": 0.24526060606060607
+    },
+    {
+      "id": "E5",
+      "concentration": 25.0,
+      "conc_unit": "umol / l",
+      "signal": 0.41729696969696967
+    },
+    {
+      "id": "E6",
+      "concentration": 50.0,
+      "conc_unit": "umol / l",
+      "signal": 0.8601787878787878
+    },
+    {
+      "id": "E7",
+      "concentration": 75.0,
+      "conc_unit": "umol / l",
+      "signal": 1.2837515151515153
+    },
+    {
+      "id": "E8",
+      "concentration": 100.0,
+      "conc_unit": "umol / l",
+      "signal": 1.7263060606060605
+    },
+    {
+      "id": "E9",
+      "concentration": 150.0,
+      "conc_unit": "umol / l",
+      "signal": 2.6050333333333335
+    },
+    {
+      "id": "E10",
+      "concentration": 200.0,
+      "conc_unit": "umol / l",
+      "signal": 3.2089969696969702
+    },
+    {
+      "id": "F1",
+      "concentration": 0.0,
+      "conc_unit": "umol / l",
+      "signal": 0.0011424242424242352
+    },
+    {
+      "id": "F2",
+      "concentration": 5.0,
+      "conc_unit": "umol / l",
+      "signal": 0.0647060606060606
+    },
+    {
+      "id": "F3",
+      "concentration": 10.0,
+      "conc_unit": "umol / l",
+      "signal": 0.15664242424242428
+    },
+    {
+      "id": "F4",
+      "concentration": 15.0,
+      "conc_unit": "umol / l",
+      "signal": 0.24596969696969692
+    },
+    {
+      "id": "F5",
+      "concentration": 25.0,
+      "conc_unit": "umol / l",
+      "signal": 0.41667878787878787
+    },
+    {
+      "id": "F6",
+      "concentration": 50.0,
+      "conc_unit": "umol / l",
+      "signal": 0.860078787878788
+    },
+    {
+      "id": "F7",
+      "concentration": 75.0,
+      "conc_unit": "umol / l",
+      "signal": 1.286678787878788
+    },
+    {
+      "id": "F8",
+      "concentration": 100.0,
+      "conc_unit": "umol / l",
+      "signal": 1.7307060606060605
+    },
+    {
+      "id": "F9",
+      "concentration": 150.0,
+      "conc_unit": "umol / l",
+      "signal": 2.597015151515152
+    },
+    {
+      "id": "F10",
+      "concentration": 200.0,
+      "conc_unit": "umol / l",
+      "signal": 3.209978787878789
+    }
+  ],
+  "ph": 3.0,
+  "temperature": 30.0,
+  "temperature_unit": "C",
+  "created": "2022-10-11 10:14:31",
+  "model_result": {
+    "id": "calibrationmodel1",
+    "name": "linear",
+    "equation": "a * concentration = signal",
+    "parameters": [
+      {
+        "id": "parameter6",
+        "name": "a",
+        "value": 0.01731460518695782,
+        "init_value": 0.1,
+        "standard_error": 3.588537311366751e-05
+      }
+    ],
+    "was_fitted": true,
+    "calibration_range": {
+      "id": "calibrationrange8",
+      "conc_lower": 0.0,
+      "conc_upper": 150.0,
+      "signal_lower": -0.0007393939393939469,
+      "signal_upper": 2.6053242424242424
+    },
+    "statistics": {
+      "id": "fitstatistics8",
+      "aic": -234.88812211387173,
+      "bic": -233.5922852478674,
+      "r2": 0.9997826256275483,
+      "rmsd": 0.012440262679447662
+    }
+  },
+  "__source__": {
+    "root": "Standard",
+    "repo": "https://github.com/FAIRChemistry/CaliPytion",
+    "commit": "d456bfc4a46b88058ef3ad49c77d60fd366af14f",
+    "url": "https://github.com/FAIRChemistry/CaliPytion/tree/d456bfc4a46b88058ef3ad49c77d60fd366af14f"
+  }
+}

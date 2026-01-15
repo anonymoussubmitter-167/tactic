@@ -1,0 +1,2 @@
+git+https://github.com/FAIRChemistry/MTPHandler.git@674140d498c46699b05ffd68d1c6983d80b84991#egg=MTPHandler
+git+https://github.com/FAIRChemistry/EnzymePynetics.git@9557beb2da1f9116d08eb0ee996862894a8a37e7#egg=EnzymePynetics

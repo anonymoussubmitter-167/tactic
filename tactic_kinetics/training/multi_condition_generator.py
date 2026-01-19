@@ -45,7 +45,7 @@ class MultiConditionSample:
 @dataclass
 class MultiConditionConfig:
     """Configuration for multi-condition data generation."""
-    n_conditions_per_sample: int = 5
+    n_conditions_per_sample: int = 20  # Increased for better discrimination
     n_timepoints: int = 20
     noise_level: float = 0.03
 
@@ -267,11 +267,11 @@ class MultiConditionGenerator:
     # ========== CONDITION VARIATION STRATEGIES ==========
 
     def _vary_substrate(self, params: Dict) -> List[Dict]:
-        """For simple MM: vary [S] to see saturation behavior."""
+        """For simple MM: vary [S] extensively to see full saturation behavior."""
         Km = self._energy_to_km(params['dG_ES'])
 
-        # Sample around Km to see full saturation curve
-        S0_values = Km * np.array([0.1, 0.3, 1.0, 3.0, 10.0])
+        # More conditions spanning wide range around Km
+        S0_values = Km * np.array([0.05, 0.1, 0.2, 0.3, 0.5, 1.0, 2.0, 3.0, 5.0, 10.0])
 
         return [
             {'S0': float(S0), 'E0': self.config.E0_default, 'T': T_STANDARD, 'pH': 7.0}
@@ -280,39 +280,34 @@ class MultiConditionGenerator:
 
     def _vary_inhibitor(self, params: Dict) -> List[Dict]:
         """
-        For inhibition mechanisms: vary [I] to see how kinetics change.
-        THIS IS THE KEY - competitive/uncompetitive/mixed differ in HOW
-        apparent Km and Vmax change with [I].
+        IMPROVED inhibitor variation using full [I] × [S] grid.
+
+        Key insight: Need to see BOTH how curves shift with [I]
+        AND measure apparent Km at each [I] by varying [S].
+
+        This creates a grid that reveals:
+        - Competitive: Km_app ↑↑↑ with [I], Vmax unchanged
+        - Uncompetitive: Both Km_app ↓ and Vmax ↓ with [I]
+        - Mixed: Both change but with different ratio
         """
         Ki = self._energy_to_ki(params['dG_EI'])
         Km = self._energy_to_km(params['dG_ES'])
 
         conditions = []
 
-        # Series 1: Fixed [S] = 2*Km, varying [I] (0 to 2*Ki)
-        # This shows how rate changes with [I] at saturating [S]
-        I0_values = Ki * np.array([0.0, 0.5, 1.0, 2.0])
-        for I0 in I0_values:
-            conditions.append({
-                'S0': float(2.0 * Km), 'I0': float(I0),
-                'E0': self.config.E0_default, 'T': T_STANDARD, 'pH': 7.0
-            })
+        # Full [I] × [S] grid: 4 [I] levels × 5 [S] levels = 20 conditions
+        I_levels = [0.0, 0.5, 1.0, 2.0]  # Relative to Ki
+        S_levels = [0.2, 0.5, 1.0, 2.0, 5.0]  # Relative to Km
 
-        # Series 2: Fixed [S] = 0.5*Km, varying [I]
-        # This shows how rate changes with [I] at sub-saturating [S]
-        for I0 in I0_values:
-            conditions.append({
-                'S0': float(0.5 * Km), 'I0': float(I0),
-                'E0': self.config.E0_default, 'T': T_STANDARD, 'pH': 7.0
-            })
-
-        # Series 3: Fixed [I] = Ki, varying [S] to measure apparent Km
-        S0_values = Km * np.array([0.2, 0.5, 1.0, 2.0, 5.0])
-        for S0 in S0_values:
-            conditions.append({
-                'S0': float(S0), 'I0': float(Ki),
-                'E0': self.config.E0_default, 'T': T_STANDARD, 'pH': 7.0
-            })
+        for I_rel in I_levels:
+            for S_rel in S_levels:
+                conditions.append({
+                    'S0': float(S_rel * Km),
+                    'I0': float(I_rel * Ki),
+                    'E0': self.config.E0_default,
+                    'T': T_STANDARD,
+                    'pH': 7.0
+                })
 
         return conditions[:self.config.n_conditions_per_sample]
 
@@ -320,12 +315,14 @@ class MultiConditionGenerator:
         """
         For substrate inhibition: need HIGH [S] to see inhibition.
         The biphasic behavior only appears when [S] >> Ki,S.
+
+        More conditions to clearly see the rise-then-fall pattern.
         """
         Km = self._energy_to_km(params['dG_ES'])
         Ki_S = self._energy_to_ki(params['dG_ESS'])
 
-        # Must go well above Ki,S to see inhibition
-        S0_values = np.array([0.1, 0.5, 1.0, 2.0, 5.0, 10.0]) * max(Km, Ki_S)
+        # Must go well above Ki,S to see inhibition - more points for clear pattern
+        S0_values = np.array([0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 3.0, 5.0, 8.0, 10.0, 15.0, 20.0]) * max(Km, Ki_S)
 
         return [
             {'S0': float(S0), 'E0': self.config.E0_default, 'T': T_STANDARD, 'pH': 7.0}
@@ -334,52 +331,105 @@ class MultiConditionGenerator:
 
     def _vary_both_substrates(self, params: Dict) -> List[Dict]:
         """
-        For bi-substrate mechanisms: vary [A] and [B] independently.
+        IMPROVED bi-substrate variation using slices through [A]-[B] space.
 
-        Ordered vs Random vs Ping-pong differ in:
-        - Double reciprocal plot patterns
-        - Intersection points
-        - Response to varying one substrate at fixed other
+        Key insight: To distinguish ordered/random/ping-pong, we need
+        to see how varying ONE substrate affects kinetics at FIXED levels
+        of the OTHER. This reveals the intersection pattern:
+
+        Ordered bi-bi:  Lines intersect LEFT of y-axis (Ki_A term)
+        Random bi-bi:   Lines intersect ON the y-axis
+        Ping-pong:      Lines are PARALLEL (no intersection)
         """
         Km_A = self._energy_to_km(params['dG_EA'])
         Km_B = self._energy_to_km(params['dG_EB'])
 
         conditions = []
 
-        # Grid of [A] x [B] conditions
-        A_multipliers = np.array([0.3, 1.0, 3.0])
-        B_multipliers = np.array([0.3, 1.0, 3.0])
+        # Slice 1: Fix [B] at LOW level, vary [A] widely (5 conditions)
+        B_low = 0.2 * Km_B
+        for A_mult in [0.1, 0.5, 1.0, 2.0, 5.0]:
+            conditions.append({
+                'A0': float(A_mult * Km_A),
+                'B0': float(B_low),
+                'E0': self.config.E0_default,
+                'T': T_STANDARD,
+                'pH': 7.0
+            })
 
-        for A_mult in A_multipliers:
-            for B_mult in B_multipliers:
+        # Slice 2: Fix [B] at HIGH level, vary [A] widely (5 conditions)
+        B_high = 5.0 * Km_B
+        for A_mult in [0.1, 0.5, 1.0, 2.0, 5.0]:
+            conditions.append({
+                'A0': float(A_mult * Km_A),
+                'B0': float(B_high),
+                'E0': self.config.E0_default,
+                'T': T_STANDARD,
+                'pH': 7.0
+            })
+
+        # Slice 3: Fix [A] at LOW level, vary [B] widely (5 conditions)
+        A_low = 0.2 * Km_A
+        for B_mult in [0.1, 0.5, 1.0, 2.0, 5.0]:
+            conditions.append({
+                'A0': float(A_low),
+                'B0': float(B_mult * Km_B),
+                'E0': self.config.E0_default,
+                'T': T_STANDARD,
+                'pH': 7.0
+            })
+
+        # Slice 4: Fix [A] at HIGH level, vary [B] widely (5 conditions)
+        A_high = 5.0 * Km_A
+        for B_mult in [0.1, 0.5, 1.0, 2.0, 5.0]:
+            conditions.append({
+                'A0': float(A_high),
+                'B0': float(B_mult * Km_B),
+                'E0': self.config.E0_default,
+                'T': T_STANDARD,
+                'pH': 7.0
+            })
+
+        return conditions[:self.config.n_conditions_per_sample]  # Returns up to 20 conditions
+
+    def _vary_substrate_with_product(self, params: Dict) -> List[Dict]:
+        """
+        IMPROVED reversible/product inhibition variation.
+
+        Key distinction:
+        - Reversible: Approaches equilibrium (net rate → 0 when [P]/[S] = Keq)
+        - Product inhibition: Rate decreases but reaction continues forward
+
+        Strategy: Full [S] × [P] grid to see equilibrium vs inhibition behavior
+        """
+        Km = self._energy_to_km(params['dG_ES'])
+        Km_P = self._energy_to_km(params['dG_EP'])
+
+        conditions = []
+
+        # Full [S] × [P] grid: 4 [S] levels × 4 [P] levels = 16 conditions
+        S_levels = [0.2, 0.5, 1.0, 3.0]  # Relative to Km
+        P_levels = [0.0, 0.5, 1.0, 2.0]  # Relative to Km_P
+
+        for S_rel in S_levels:
+            for P_rel in P_levels:
                 conditions.append({
-                    'A0': float(A_mult * Km_A),
-                    'B0': float(B_mult * Km_B),
+                    'S0': float(S_rel * Km),
+                    'P0': float(P_rel * Km_P),
                     'E0': self.config.E0_default,
                     'T': T_STANDARD,
                     'pH': 7.0
                 })
 
-        return conditions[:self.config.n_conditions_per_sample]
-
-    def _vary_substrate_with_product(self, params: Dict) -> List[Dict]:
-        """For reversible/product inhibition: include initial product."""
-        Km = self._energy_to_km(params['dG_ES'])
-
-        conditions = []
-
-        # Vary [S] with [P]=0
-        for S0_mult in [0.3, 1.0, 3.0]:
+        # Additional conditions near equilibrium (for reversible detection)
+        # High [P]/[S] ratio to see approach to equilibrium
+        for ratio in [1.0, 2.0, 5.0]:
             conditions.append({
-                'S0': float(S0_mult * Km), 'P0': 0.0,
-                'E0': self.config.E0_default, 'T': T_STANDARD, 'pH': 7.0
-            })
-
-        # Add initial product to see inhibition/reversal
-        for P0_mult in [0.5, 1.0, 2.0]:
-            conditions.append({
-                'S0': float(Km), 'P0': float(P0_mult * Km),
-                'E0': self.config.E0_default, 'T': T_STANDARD, 'pH': 7.0
+                'S0': float(Km),
+                'P0': float(ratio * Km),
+                'E0': self.config.E0_default,
+                'T': T_STANDARD,
+                'pH': 7.0
             })
 
         return conditions[:self.config.n_conditions_per_sample]

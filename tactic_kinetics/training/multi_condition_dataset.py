@@ -18,9 +18,11 @@ from .multi_condition_generator import MultiConditionSample
 @dataclass
 class MultiConditionDatasetConfig:
     """Configuration for multi-condition dataset."""
-    max_conditions: int = 10  # Maximum number of conditions per sample
+    max_conditions: int = 20  # Maximum number of conditions per sample (increased)
     n_timepoints: int = 20  # Fixed number of timepoints
     n_condition_features: int = 8  # Number of condition features
+    n_trajectory_features: int = 9  # Features per timepoint: t, S, P, dS/dt, dP/dt + 4 derived
+    n_derived_features: int = 8  # Per-trajectory derived features (v0, t_half, etc.)
 
 
 class MultiConditionDataset(Dataset):
@@ -68,44 +70,59 @@ class MultiConditionDataset(Dataset):
         # Process trajectories
         trajectories = []
         conditions_list = []
+        derived_features_list = []
 
         for traj_data in sample.trajectories[:self.config.max_conditions]:
-            # Get the main concentration trajectory (S or P, depending on mechanism)
-            conc = self._get_main_trajectory(traj_data['concentrations'], sample.mechanism)
+            concentrations = traj_data['concentrations']
             t = traj_data['t']
+            conditions = traj_data['conditions']
+
+            # Get substrate and product trajectories
+            S, P = self._get_substrate_product(concentrations, sample.mechanism)
 
             # Interpolate to fixed number of timepoints if needed
             if len(t) != self.config.n_timepoints:
                 t_new = np.linspace(t[0], t[-1], self.config.n_timepoints)
-                conc = np.interp(t_new, t, conc)
+                S = np.interp(t_new, t, S)
+                P = np.interp(t_new, t, P)
                 t = t_new
 
-            # Compute rate (d_conc/dt)
-            rate = np.gradient(conc, t)
+            # Compute rates (d_conc/dt)
+            dS_dt = np.gradient(S, t)
+            dP_dt = np.gradient(P, t)
 
             # Normalize
             t_norm = t / self.time_max
-            conc_norm = (conc - self.conc_mean) / self.conc_std
-            rate_norm = rate / (self.conc_std / self.time_max + 1e-8)
+            S_norm = (S - self.conc_mean) / self.conc_std
+            P_norm = (P - self.conc_mean) / self.conc_std
+            dS_dt_norm = dS_dt / (self.conc_std / self.time_max + 1e-8)
+            dP_dt_norm = dP_dt / (self.conc_std / self.time_max + 1e-8)
 
-            # Stack features: (n_timepoints, 3)
-            traj_features = np.stack([t_norm, conc_norm, rate_norm], axis=-1)
+            # Stack trajectory features: (n_timepoints, 5)
+            # Features: t_norm, S_norm, P_norm, dS/dt_norm, dP/dt_norm
+            traj_features = np.stack([t_norm, S_norm, P_norm, dS_dt_norm, dP_dt_norm], axis=-1)
             trajectories.append(traj_features)
 
             # Extract condition features
-            cond_features = self._extract_condition_features(traj_data['conditions'])
+            cond_features = self._extract_condition_features(conditions)
             conditions_list.append(cond_features)
+
+            # Compute derived kinetic features
+            derived = self._compute_derived_features(t, S, P, conditions)
+            derived_features_list.append(derived)
 
         # Pad to max_conditions
         n_actual = len(trajectories)
         n_pad = self.config.max_conditions - n_actual
 
         if n_pad > 0:
-            pad_traj = np.zeros((self.config.n_timepoints, 3))
+            pad_traj = np.zeros((self.config.n_timepoints, 5))  # Now 5 features
             pad_cond = np.zeros(self.config.n_condition_features)
+            pad_derived = np.zeros(self.config.n_derived_features)
             for _ in range(n_pad):
                 trajectories.append(pad_traj)
                 conditions_list.append(pad_cond)
+                derived_features_list.append(pad_derived)
 
         # Create mask (True = invalid/padded)
         condition_mask = np.array([False] * n_actual + [True] * n_pad)
@@ -113,29 +130,121 @@ class MultiConditionDataset(Dataset):
         # Convert to tensors
         trajectories_tensor = torch.tensor(np.stack(trajectories), dtype=torch.float32)
         conditions_tensor = torch.tensor(np.stack(conditions_list), dtype=torch.float32)
+        derived_tensor = torch.tensor(np.stack(derived_features_list), dtype=torch.float32)
         condition_mask_tensor = torch.tensor(condition_mask, dtype=torch.bool)
 
         return {
-            'trajectories': trajectories_tensor,  # (max_conditions, n_timepoints, 3)
+            'trajectories': trajectories_tensor,  # (max_conditions, n_timepoints, 5)
             'conditions': conditions_tensor,  # (max_conditions, n_condition_features)
+            'derived_features': derived_tensor,  # (max_conditions, n_derived_features)
             'condition_mask': condition_mask_tensor,  # (max_conditions,)
             'mechanism_idx': torch.tensor(sample.mechanism_idx, dtype=torch.long),
             'mechanism': sample.mechanism,
             'n_conditions': n_actual,
         }
 
-    def _get_main_trajectory(self, concentrations: Dict[str, np.ndarray], mechanism: str) -> np.ndarray:
-        """Get the main trajectory to track (usually product or substrate)."""
-        # For most mechanisms, track substrate consumption
+    def _get_substrate_product(self, concentrations: Dict[str, np.ndarray], mechanism: str) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Get substrate and product trajectories.
+
+        Returns (S, P) for single substrate mechanisms
+        Returns (A, P) for bi-substrate mechanisms (A is primary substrate)
+        """
         if 'S' in concentrations:
-            return concentrations['S']
+            S = concentrations['S']
+            P = concentrations.get('P', np.zeros_like(S))
         elif 'A' in concentrations:
-            return concentrations['A']
-        elif 'P' in concentrations:
-            return concentrations['P']
+            # Bi-substrate: use A as primary, P as product
+            S = concentrations['A']
+            P = concentrations.get('P', np.zeros_like(S))
         else:
-            # Return first available
-            return list(concentrations.values())[0]
+            # Fallback
+            keys = list(concentrations.keys())
+            S = concentrations[keys[0]]
+            P = concentrations[keys[1]] if len(keys) > 1 else np.zeros_like(S)
+
+        return S, P
+
+    def _compute_derived_features(self, t: np.ndarray, S: np.ndarray, P: np.ndarray,
+                                   conditions: Dict) -> np.ndarray:
+        """
+        Compute derived kinetic features that are diagnostic for mechanism discrimination.
+
+        These features are what biochemists actually look at:
+        - Initial rate (v0)
+        - Time to half conversion
+        - Final conversion
+        - Rate ratio (late/early)
+        - Curve shape deviation from simple exponential
+
+        Features (8 total):
+        0. v0_normalized - initial rate normalized by E0
+        1. t_half_normalized - time to 50% conversion / t_max
+        2. final_conversion - fraction of substrate converted
+        3. rate_ratio - v_late / v_early (indicates product inhibition/reversibility)
+        4. P_final_normalized - final product concentration
+        5. mass_balance_error - should be ~0 for good data
+        6. exponential_residual - deviation from simple exponential decay
+        7. acceleration - second derivative at midpoint (curve shape)
+        """
+        features = np.zeros(self.config.n_derived_features)
+
+        S0 = S[0] if len(S) > 0 else 1.0
+        E0 = conditions.get('E0', 1e-3)
+
+        # 1. Initial rate (v0) - slope at t=0
+        if len(t) > 1:
+            v0 = -np.gradient(S, t)[0]  # Negative because S decreases
+            features[0] = v0 / (E0 + 1e-12)  # Normalize by enzyme concentration
+
+        # 2. Time to 50% conversion
+        if S0 > 0:
+            S_frac = S / S0
+            half_indices = np.where(S_frac <= 0.5)[0]
+            if len(half_indices) > 0:
+                t_half = t[half_indices[0]]
+            else:
+                t_half = t[-1]  # Didn't reach 50%
+            features[1] = t_half / (t[-1] + 1e-8)
+
+        # 3. Final conversion
+        if S0 > 0:
+            features[2] = 1 - S[-1] / S0
+
+        # 4. Rate ratio (late phase vs early phase)
+        if len(t) > 4:
+            early_rate = -np.gradient(S, t)[1]  # Near start
+            late_idx = len(t) * 3 // 4
+            late_rate = -np.gradient(S, t)[late_idx]
+            features[3] = late_rate / (early_rate + 1e-10)
+
+        # 5. Final product (normalized)
+        features[4] = P[-1] / (self.conc_std + 1e-8)
+
+        # 6. Mass balance error
+        if S0 > 0:
+            features[5] = (S0 - S[-1] - P[-1]) / S0
+
+        # 7. Exponential residual (deviation from simple kinetics)
+        if S0 > 0 and len(t) > 2:
+            # Simple exponential would be S = S0 * exp(-k*t)
+            # Check deviation from this
+            try:
+                # Estimate k from t_half
+                k_est = 0.693 / (features[1] * t[-1] + 1e-8)
+                S_exp = S0 * np.exp(-k_est * t)
+                residual = np.mean((S - S_exp) ** 2) / (S0 ** 2 + 1e-8)
+                features[6] = np.clip(residual, 0, 1)
+            except:
+                features[6] = 0.0
+
+        # 8. Acceleration at midpoint (second derivative)
+        if len(t) > 4:
+            mid_idx = len(t) // 2
+            d2S_dt2 = np.gradient(np.gradient(S, t), t)
+            features[7] = d2S_dt2[mid_idx] / (self.conc_std / (self.time_max ** 2) + 1e-8)
+
+        return features
 
     def _extract_condition_features(self, conditions: Dict) -> np.ndarray:
         """
@@ -196,12 +305,14 @@ def multi_condition_collate_fn(batch: List[Dict]) -> Dict[str, Tensor]:
     """
     trajectories = torch.stack([item['trajectories'] for item in batch])
     conditions = torch.stack([item['conditions'] for item in batch])
+    derived_features = torch.stack([item['derived_features'] for item in batch])
     condition_masks = torch.stack([item['condition_mask'] for item in batch])
     mechanism_idx = torch.stack([item['mechanism_idx'] for item in batch])
 
     return {
-        'trajectories': trajectories,  # (batch, max_conditions, n_timepoints, 3)
+        'trajectories': trajectories,  # (batch, max_conditions, n_timepoints, 5)
         'conditions': conditions,  # (batch, max_conditions, n_condition_features)
+        'derived_features': derived_features,  # (batch, max_conditions, n_derived_features)
         'condition_mask': condition_masks,  # (batch, max_conditions)
         'mechanism_idx': mechanism_idx,  # (batch,)
     }
@@ -264,7 +375,7 @@ def generate_multi_condition_dataset(
     from .multi_condition_generator import MultiConditionGenerator, MultiConditionConfig
 
     config = MultiConditionConfig(
-        n_conditions_per_sample=5,
+        n_conditions_per_sample=20,  # Increased for better discrimination
         n_timepoints=20,
         noise_level=0.03,
     )

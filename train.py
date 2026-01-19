@@ -168,13 +168,14 @@ def train_epoch(
     for batch_idx, batch in enumerate(dataloader):
         trajectories = batch['trajectories'].to(device)
         conditions = batch['conditions'].to(device)
+        derived_features = batch['derived_features'].to(device)
         condition_mask = batch['condition_mask'].to(device)
         labels = batch['mechanism_idx'].to(device)
         batch_size = labels.size(0)
 
         optimizer.zero_grad()
 
-        output = model(trajectories, conditions, condition_mask=condition_mask)
+        output = model(trajectories, conditions, derived_features=derived_features, condition_mask=condition_mask)
         logits = output['logits']
 
         loss = F.cross_entropy(logits, labels)
@@ -259,10 +260,11 @@ def validate(
     for batch in dataloader:
         trajectories = batch['trajectories'].to(device)
         conditions = batch['conditions'].to(device)
+        derived_features = batch['derived_features'].to(device)
         condition_mask = batch['condition_mask'].to(device)
         labels = batch['mechanism_idx'].to(device)
 
-        output = model(trajectories, conditions, condition_mask=condition_mask)
+        output = model(trajectories, conditions, derived_features=derived_features, condition_mask=condition_mask)
         logits = output['logits']
 
         loss = F.cross_entropy(logits, labels)
@@ -366,7 +368,7 @@ def main():
     parser.add_argument("--dropout", type=float, default=0.1, help="Dropout rate")
     parser.add_argument("--grad-clip", type=float, default=1.0, help="Gradient clipping")
     parser.add_argument("--samples-per-mech", type=int, default=1000, help="Samples per mechanism")
-    parser.add_argument("--n-conditions", type=int, default=5, help="Conditions per sample")
+    parser.add_argument("--n-conditions", type=int, default=20, help="Conditions per sample")
     parser.add_argument("--gpus", type=str, default=None, help="GPU IDs (e.g., '0,1,2')")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument("--checkpoint-dir", type=str, default="checkpoints", help="Checkpoint directory")
@@ -452,8 +454,10 @@ def main():
 
     # Create datasets
     dataset_config = MultiConditionDatasetConfig(
-        max_conditions=args.n_conditions + 5,
+        max_conditions=args.n_conditions,  # 20 conditions max
         n_timepoints=20,
+        n_trajectory_features=5,  # t, S, P, dS/dt, dP/dt
+        n_derived_features=8,  # v0, t_half, etc.
     )
 
     train_dataset = MultiConditionDataset(train_samples, dataset_config)
@@ -494,6 +498,9 @@ def main():
         n_cross_layers=args.n_cross_layers,
         n_mechanisms=10,
         dropout=args.dropout,
+        n_condition_features=8,
+        n_traj_features=5,  # t, S, P, dS/dt, dP/dt
+        n_derived_features=8,  # v0, t_half, rate_ratio, etc.
     )
     model = model.to(device)
 

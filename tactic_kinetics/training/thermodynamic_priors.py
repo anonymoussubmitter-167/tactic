@@ -197,10 +197,11 @@ class ThermodynamicPriorExtractor:
         )
 
         # Inhibitor binding (often tighter than substrate)
+        # Note: min_val must be >= 25 kJ/mol to avoid ODE solver instability
         self.activation_energy_distributions['inhibitor_binding'] = EnergyDistribution(
-            mean=35.0,
-            std=10.0,
-            min_val=15.0,   # Very tight inhibitors
+            mean=40.0,
+            std=8.0,
+            min_val=25.0,   # Increased from 15 to prevent NaN in ODE solver
             max_val=60.0,
             n_samples=1000,
             source="Literature Ki values"

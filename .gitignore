@@ -37,6 +37,7 @@ env/
 # Data (large files)
 *.sqlite
 *.db
+data/*.pt
 
 # Checkpoints
 checkpoints/

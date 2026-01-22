@@ -1,0 +1,39 @@
+{
+  "date": "2026-01-22T04:56:17.318346",
+  "n_samples": 20,
+  "seed": 99999,
+  "tactic": {
+    "accuracy": 0.62,
+    "per_mechanism": {
+      "michaelis_menten_irreversible": 0.99,
+      "michaelis_menten_reversible": 0.54,
+      "competitive_inhibition": 0.61,
+      "uncompetitive_inhibition": 0.61,
+      "mixed_inhibition": 0.36,
+      "substrate_inhibition": 0.97,
+      "ordered_bi_bi": 0.32,
+      "random_bi_bi": 0.41,
+      "ping_pong": 0.57,
+      "product_inhibition": 0.82
+    },
+    "time_seconds": 42.184370040893555
+  },
+  "classical": {
+    "accuracy": 0.366,
+    "per_mechanism": {
+      "michaelis_menten_irreversible": 0.58,
+      "michaelis_menten_reversible": 0.6,
+      "competitive_inhibition": 0.12,
+      "uncompetitive_inhibition": 0.3,
+      "mixed_inhibition": 0.18,
+      "substrate_inhibition": 0.69,
+      "ordered_bi_bi": 0.12,
+      "random_bi_bi": 0.45,
+      "ping_pong": 0.42,
+      "product_inhibition": 0.2
+    },
+    "time_seconds": 5642.612088918686,
+    "criterion": "aic"
+  },
+  "speedup": 133.7607258254185
+}

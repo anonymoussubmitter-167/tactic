@@ -1,0 +1,39 @@
+{
+  "summary": {
+    "random_baseline": 0.10,
+    "classical": 0.386,
+    "v0": 0.106,
+    "v1": 0.486,
+    "v2": 0.616,
+    "v3": 0.620
+  },
+  "per_mechanism": {
+    "michaelis_menten_irreversible": {"v0": 0.00, "v1": 0.99, "v2": 0.97, "v3": 0.99, "classical": 0.52},
+    "michaelis_menten_reversible": {"v0": 0.00, "v1": 0.66, "v2": 0.60, "v3": 0.54, "classical": 0.66},
+    "competitive_inhibition": {"v0": 0.96, "v1": 0.52, "v2": 0.53, "v3": 0.61, "classical": 0.19},
+    "uncompetitive_inhibition": {"v0": 0.00, "v1": 0.21, "v2": 0.59, "v3": 0.61, "classical": 0.24},
+    "mixed_inhibition": {"v0": 0.00, "v1": 0.20, "v2": 0.47, "v3": 0.36, "classical": 0.29},
+    "substrate_inhibition": {"v0": 0.00, "v1": 0.95, "v2": 1.00, "v3": 0.97, "classical": 0.69},
+    "ordered_bi_bi": {"v0": 0.00, "v1": 0.09, "v2": 0.38, "v3": 0.32, "classical": 0.09},
+    "random_bi_bi": {"v0": 0.00, "v1": 0.55, "v2": 0.39, "v3": 0.41, "classical": 0.48},
+    "ping_pong": {"v0": 0.09, "v1": 0.24, "v2": 0.54, "v3": 0.57, "classical": 0.46},
+    "product_inhibition": {"v0": 0.01, "v1": 0.45, "v2": 0.69, "v3": 0.82, "classical": 0.24}
+  },
+  "version_descriptions": {
+    "v0": "Single-curve baseline (1 trajectory, 2 features)",
+    "v1": "Basic multi-condition (5 conditions, 2 features, no derived)",
+    "v2": "Improved multi-condition (20 conditions, 5 features, derived, pairwise)",
+    "v3": "Multi-task with auxiliary heads",
+    "classical": "AIC model selection (fit all 10 mechanisms, pick lowest AIC)"
+  },
+  "key_findings": {
+    "tactic_vs_classical": "+23.4% (62.0% vs 38.6%)",
+    "v0_to_v1_gain": "+38.0% (multi-condition is critical)",
+    "v1_to_v2_gain": "+13.0% (derived features + pairwise)",
+    "v2_to_v3_gain": "+0.4% (multi-task regularization)",
+    "best_mechanisms_tactic": ["michaelis_menten_irreversible (99%)", "substrate_inhibition (97%)", "product_inhibition (82%)"],
+    "hardest_mechanisms": ["ordered_bi_bi (32%)", "mixed_inhibition (36%)", "random_bi_bi (41%)"]
+  },
+  "n_test_samples": 1000,
+  "date": "2026-01-22"
+}

@@ -1,0 +1,63 @@
+{
+  "bin_results": [
+    {
+      "confidence_low": 0.2,
+      "confidence_high": 0.4,
+      "accuracy": 0.2986111111111111,
+      "n_samples": 144
+    },
+    {
+      "confidence_low": 0.4,
+      "confidence_high": 0.6,
+      "accuracy": 0.3901639344262295,
+      "n_samples": 305
+    },
+    {
+      "confidence_low": 0.6,
+      "confidence_high": 0.8,
+      "accuracy": 0.6023391812865497,
+      "n_samples": 171
+    },
+    {
+      "confidence_low": 0.8,
+      "confidence_high": 0.9,
+      "accuracy": 0.7397260273972602,
+      "n_samples": 73
+    },
+    {
+      "confidence_low": 0.9,
+      "confidence_high": 1.0,
+      "accuracy": 0.9804560260586319,
+      "n_samples": 307
+    }
+  ],
+  "per_mechanism_confidence": {
+    "michaelis_menten_irreversible": 0.9941419577598571,
+    "michaelis_menten_reversible": 0.7562772578001022,
+    "competitive_inhibition": 0.5552953431010246,
+    "uncompetitive_inhibition": 0.6191659778356552,
+    "mixed_inhibition": 0.6580236220359802,
+    "substrate_inhibition": 0.9819810068607331,
+    "ordered_bi_bi": 0.49468236058950427,
+    "random_bi_bi": 0.5406683975458145,
+    "ping_pong": 0.5543196985125541,
+    "product_inhibition": 0.6863425272703171
+  },
+  "per_mechanism_accuracy": {
+    "michaelis_menten_irreversible": 0.99,
+    "michaelis_menten_reversible": 0.54,
+    "competitive_inhibition": 0.61,
+    "uncompetitive_inhibition": 0.61,
+    "mixed_inhibition": 0.36,
+    "substrate_inhibition": 0.97,
+    "ordered_bi_bi": 0.32,
+    "random_bi_bi": 0.41,
+    "ping_pong": 0.57,
+    "product_inhibition": 0.82
+  },
+  "mean_confidence": 0.6840898149311543,
+  "median_confidence": 0.6225668489933014,
+  "overall_accuracy": 0.62,
+  "ece": 0.06408981493115426,
+  "n_samples": 1000
+}

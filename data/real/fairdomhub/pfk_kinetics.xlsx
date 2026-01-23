@@ -1,0 +1,28 @@
+Assay:	_A_02_dec2016-RNAisol
+Short Name:	02_dec2016-RNAisol
+Assay Class:	WET
+Assay Type:	RNAisol
+Title:	RNA isolation and pre-qPCR sample prep
+Description:	RNA isolation and sample preparation for qPCR
+pISA Assay creation date:	2021-05-10
+pISA Assay creator:	Marko Petek
+Measurement Type:	sample preprocessing with quality control
+Technology Type:	RNA isolation and reverse transcription
+Lab manager:	Marko Petek
+Phenodata:	../../phenodata_20210113.txt
+Featuredata:	
+RNA ID:	$_RNA
+Homogenisation protocol:	handheld electric rotor-stator homogenization in tubes with Trizol
+Date Homogenisation:	2017-08-17
+Isolation Protocol:	ZymoRNA
+Date Isolation:	2017-08-17
+Storage RNA:	NA
+Dnase treatment protocol:	Zymo DNase1
+Dnase ID:	$_DNase
+Date DNAse_treatment:	2017-08-17
+Storage_DNAse_treated:	NA
+Operator:	Marko Petek
+cDNA ID:	$_cDNA
+DateRT:	2017-08-17
+Notes:	
+Data:	

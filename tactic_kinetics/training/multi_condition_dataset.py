@@ -23,6 +23,8 @@ class MultiConditionDatasetConfig:
     n_condition_features: int = 8  # Number of condition features
     n_trajectory_features: int = 9  # Features per timepoint: t, S, P, dS/dt, dP/dt + 4 derived
     n_derived_features: int = 8  # Per-trajectory derived features (v0, t_half, etc.)
+    n_kinetic_params: int = 2  # Per-condition kinetic params: v0_norm (proxy for Vmax_app), Km_app_est
+    n_pattern_features: int = 4  # Cross-condition pattern: dVmax/dI, dKm/dI, dVmax/dS, dKm/dS
 
 
 class MultiConditionDataset(Dataset):
@@ -133,6 +135,20 @@ class MultiConditionDataset(Dataset):
         derived_tensor = torch.tensor(np.stack(derived_features_list), dtype=torch.float32)
         condition_mask_tensor = torch.tensor(condition_mask, dtype=torch.bool)
 
+        # Compute auxiliary targets for multi-task learning
+        kinetic_params, param_pattern = self._compute_auxiliary_targets(
+            sample, trajectories, conditions_list, n_actual
+        )
+
+        # Pad kinetic params
+        if n_pad > 0:
+            pad_kinetic = np.zeros(self.config.n_kinetic_params)
+            for _ in range(n_pad):
+                kinetic_params.append(pad_kinetic)
+
+        kinetic_params_tensor = torch.tensor(np.stack(kinetic_params), dtype=torch.float32)
+        param_pattern_tensor = torch.tensor(param_pattern, dtype=torch.float32)
+
         return {
             'trajectories': trajectories_tensor,  # (max_conditions, n_timepoints, 5)
             'conditions': conditions_tensor,  # (max_conditions, n_condition_features)
@@ -141,6 +157,9 @@ class MultiConditionDataset(Dataset):
             'mechanism_idx': torch.tensor(sample.mechanism_idx, dtype=torch.long),
             'mechanism': sample.mechanism,
             'n_conditions': n_actual,
+            # Auxiliary targets for multi-task learning
+            'kinetic_params': kinetic_params_tensor,  # (max_conditions, 2) - v0_norm, km_est
+            'param_pattern': param_pattern_tensor,  # (4,) - parameter change slopes
         }
 
     def _get_substrate_product(self, concentrations: Dict[str, np.ndarray], mechanism: str) -> Tuple[np.ndarray, np.ndarray]:
@@ -246,6 +265,141 @@ class MultiConditionDataset(Dataset):
 
         return features
 
+    def _compute_auxiliary_targets(
+        self,
+        sample,
+        trajectories: List[np.ndarray],
+        conditions_list: List[np.ndarray],
+        n_actual: int
+    ) -> Tuple[List[np.ndarray], np.ndarray]:
+        """
+        Compute auxiliary targets for multi-task learning.
+
+        Returns:
+            kinetic_params: List of (2,) arrays - [v0_normalized, km_estimate] per condition
+            param_pattern: (4,) array - [dVmax/dI, dKm/dI, dVmax/dA, dKm/dA] change slopes
+        """
+        kinetic_params = []
+        v0_values = []
+        conditions_raw = []
+
+        for i, traj_data in enumerate(sample.trajectories[:n_actual]):
+            t = traj_data['t']
+            concentrations = traj_data['concentrations']
+            cond = traj_data['conditions']
+
+            S, P = self._get_substrate_product(concentrations, sample.mechanism)
+            S0 = S[0] if len(S) > 0 else 1.0
+            E0 = cond.get('E0', 1e-3)
+
+            # Compute initial rate v0
+            if len(t) > 1:
+                v0 = -np.gradient(S, t)[0]  # Negative because S decreases
+                v0 = max(v0, 1e-12)  # Ensure positive (handles noise/reversible)
+            else:
+                v0 = 1e-12
+
+            # Normalize by E0 (this is proportional to Vmax_app * S0/(Km+S0))
+            v0_norm = v0 / (E0 + 1e-12)
+            v0_norm = max(v0_norm, 1e-10)  # Ensure positive for log
+
+            # Estimate apparent Km using Michaelis-Menten approximation
+            # v0 = Vmax_app * S0 / (Km_app + S0)
+            # If we assume v0 at highest S0 ≈ Vmax_app, we can estimate Km
+            # For now, use a simpler proxy: ratio of v0 to max possible rate
+            km_estimate = S0 / (v0_norm + 1e-10) - S0 if v0_norm > 1e-10 else 1.0
+            km_estimate = np.clip(km_estimate, 1e-6, 100)  # Reasonable bounds, ensure positive
+
+            kinetic_params.append(np.array([
+                np.log10(v0_norm),  # Log scale for v0 (guaranteed positive)
+                np.log10(km_estimate),  # Log scale for Km estimate (guaranteed positive)
+            ]))
+
+            v0_values.append(v0_norm)
+            conditions_raw.append(cond)
+
+        # Compute parameter change pattern across conditions
+        param_pattern = self._compute_param_change_pattern(
+            v0_values, conditions_raw, sample.mechanism
+        )
+
+        # Final NaN check on kinetic_params
+        kinetic_params = [np.nan_to_num(kp, nan=0.0, posinf=10.0, neginf=-10.0) for kp in kinetic_params]
+
+        return kinetic_params, param_pattern
+
+    def _compute_param_change_pattern(
+        self,
+        v0_values: List[float],
+        conditions: List[Dict],
+        mechanism: str
+    ) -> np.ndarray:
+        """
+        Compute how kinetic parameters change across conditions.
+
+        This is THE KEY discriminating feature:
+        - Competitive: Km ↑ with [I], Vmax unchanged
+        - Uncompetitive: Km ↓ with [I], Vmax ↓ with [I]
+        - Mixed: Both change
+
+        Returns (4,):
+        0. dVmax/d[I] slope (0 for competitive, negative for uncompetitive)
+        1. dKm/d[I] slope (positive for competitive, negative for uncompetitive)
+        2. dVmax/d[A] or d[S] slope
+        3. dKm/d[A] or d[S] slope
+        """
+        pattern = np.zeros(4)
+
+        if len(v0_values) < 2:
+            return pattern
+
+        # Extract concentration values
+        I_values = [c.get('I0', 0) for c in conditions]
+        S_values = [c.get('S0', c.get('A0', 1.0)) for c in conditions]
+
+        v0_arr = np.array(v0_values)
+
+        # Compute slopes if there's variation in [I]
+        I_arr = np.array(I_values)
+        if I_arr.max() > I_arr.min() + 1e-10:
+            # Fit linear regression: v0 = a*I + b
+            try:
+                slope_v_I = np.polyfit(I_arr, v0_arr, 1)[0]
+                pattern[0] = np.clip(slope_v_I / (v0_arr.mean() + 1e-10), -10, 10)
+            except:
+                pass
+
+            # For Km estimation with [I], look at how v0/S0 ratio changes
+            # This is a proxy for Vmax/Km changes
+            try:
+                S_arr = np.array(S_values)
+                v_over_S = v0_arr / (S_arr + 1e-10)
+                slope_km_I = np.polyfit(I_arr, v_over_S, 1)[0]
+                pattern[1] = np.clip(slope_km_I / (v_over_S.mean() + 1e-10), -10, 10)
+            except:
+                pass
+
+        # Compute slopes with [S] or [A] variation
+        S_arr = np.array(S_values)
+        if S_arr.max() > S_arr.min() + 1e-10:
+            try:
+                slope_v_S = np.polyfit(S_arr, v0_arr, 1)[0]
+                pattern[2] = np.clip(slope_v_S / (v0_arr.mean() + 1e-10), -10, 10)
+            except:
+                pass
+
+            # Km proxy: at what [S] does v0 reach half-max?
+            try:
+                v0_max = v0_arr.max()
+                half_max_idx = np.argmin(np.abs(v0_arr - v0_max / 2))
+                pattern[3] = np.log10(max(S_arr[half_max_idx], 1e-10))
+            except:
+                pass
+
+        # Final NaN/Inf check - replace with zeros
+        pattern = np.nan_to_num(pattern, nan=0.0, posinf=10.0, neginf=-10.0)
+        return pattern
+
     def _extract_condition_features(self, conditions: Dict) -> np.ndarray:
         """
         Extract and normalize condition features.
@@ -308,6 +462,8 @@ def multi_condition_collate_fn(batch: List[Dict]) -> Dict[str, Tensor]:
     derived_features = torch.stack([item['derived_features'] for item in batch])
     condition_masks = torch.stack([item['condition_mask'] for item in batch])
     mechanism_idx = torch.stack([item['mechanism_idx'] for item in batch])
+    kinetic_params = torch.stack([item['kinetic_params'] for item in batch])
+    param_pattern = torch.stack([item['param_pattern'] for item in batch])
 
     return {
         'trajectories': trajectories,  # (batch, max_conditions, n_timepoints, 5)
@@ -315,6 +471,9 @@ def multi_condition_collate_fn(batch: List[Dict]) -> Dict[str, Tensor]:
         'derived_features': derived_features,  # (batch, max_conditions, n_derived_features)
         'condition_mask': condition_masks,  # (batch, max_conditions)
         'mechanism_idx': mechanism_idx,  # (batch,)
+        # Auxiliary targets for multi-task learning
+        'kinetic_params': kinetic_params,  # (batch, max_conditions, 2)
+        'param_pattern': param_pattern,  # (batch, 4)
     }
 
 

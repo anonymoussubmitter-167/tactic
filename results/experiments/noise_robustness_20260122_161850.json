@@ -1,0 +1,63 @@
+{
+  "results": [
+    {
+      "noise_level": 0.0,
+      "tactic_accuracy": 0.62,
+      "classical_accuracy": null,
+      "tactic_degradation": 0.0
+    },
+    {
+      "noise_level": 0.01,
+      "tactic_accuracy": 0.618,
+      "classical_accuracy": null,
+      "tactic_degradation": 0.0020000000000000018
+    },
+    {
+      "noise_level": 0.02,
+      "tactic_accuracy": 0.621,
+      "classical_accuracy": null,
+      "tactic_degradation": -0.0010000000000000009
+    },
+    {
+      "noise_level": 0.05,
+      "tactic_accuracy": 0.624,
+      "classical_accuracy": null,
+      "tactic_degradation": -0.0040000000000000036
+    },
+    {
+      "noise_level": 0.1,
+      "tactic_accuracy": 0.602,
+      "classical_accuracy": null,
+      "tactic_degradation": 0.018000000000000016
+    },
+    {
+      "noise_level": 0.15,
+      "tactic_accuracy": 0.594,
+      "classical_accuracy": null,
+      "tactic_degradation": 0.026000000000000023
+    },
+    {
+      "noise_level": 0.2,
+      "tactic_accuracy": 0.59,
+      "classical_accuracy": null,
+      "tactic_degradation": 0.030000000000000027
+    },
+    {
+      "noise_level": 0.3,
+      "tactic_accuracy": 0.579,
+      "classical_accuracy": null,
+      "tactic_degradation": 0.041000000000000036
+    }
+  ],
+  "n_samples": 1000,
+  "noise_levels_tested": [
+    0.0,
+    0.01,
+    0.02,
+    0.05,
+    0.1,
+    0.15,
+    0.2,
+    0.3
+  ]
+}

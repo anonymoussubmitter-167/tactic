@@ -1,6 +1,12 @@
 """
 Multi-condition classifier for TACTIC-Kinetics.
 
+Supports multiple architecture versions:
+- v0 (SingleCurveClassifier): Single trajectory, baseline model (22% accuracy)
+- v1 (BasicMultiConditionClassifier): 5 conditions, 2 features, no derived/pairwise (57%)
+- v2 (MultiConditionClassifier): 20 conditions, 5 features, derived, pairwise (65%)
+- v3 (MultiTaskClassifier): v2 + auxiliary heads for multi-task learning (66%)
+
 Key insight: mechanism discrimination requires COMPARING how kinetics
 change across conditions. The cross-attention learns these comparisons.
 
@@ -15,6 +21,288 @@ import torch.nn as nn
 import torch.nn.functional as F
 from typing import Optional, Dict
 import math
+
+
+# =============================================================================
+# V0: Single-Curve Classifier (Baseline)
+# =============================================================================
+
+class SingleCurveClassifier(nn.Module):
+    """
+    V0 Baseline: Single-curve classifier.
+
+    Input: One trajectory from one experimental condition
+    Output: Mechanism classification
+
+    Architecture:
+    - Input projection (2 features: time, substrate)
+    - Positional encoding
+    - 1D Conv layers (local patterns)
+    - Transformer encoder (global patterns)
+    - Mean pooling
+    - MLP classifier
+
+    Expected accuracy: ~22% (learns mechanism families, not individual mechanisms)
+    """
+
+    def __init__(
+        self,
+        d_model: int = 128,
+        n_heads: int = 4,
+        n_layers: int = 2,
+        n_mechanisms: int = 10,
+        dropout: float = 0.1,
+        n_traj_features: int = 2,  # time, substrate
+        n_condition_features: int = 4,  # T, pH, S0, E0
+    ):
+        super().__init__()
+
+        self.d_model = d_model
+        self.n_mechanisms = n_mechanisms
+
+        # Input projection for trajectory
+        self.input_proj = nn.Sequential(
+            nn.Linear(n_traj_features, d_model),
+            nn.LayerNorm(d_model),
+            nn.ReLU(),
+        )
+
+        # Condition encoder
+        self.condition_encoder = nn.Sequential(
+            nn.Linear(n_condition_features, d_model),
+            nn.LayerNorm(d_model),
+            nn.ReLU(),
+            nn.Linear(d_model, d_model),
+        )
+
+        # Positional encoding
+        self.pos_encoding = PositionalEncoding(d_model)
+
+        # 1D Convolutions for local patterns
+        self.conv_layers = nn.Sequential(
+            nn.Conv1d(d_model, d_model, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Conv1d(d_model, d_model, kernel_size=3, padding=1),
+            nn.ReLU(),
+        )
+
+        # Transformer encoder
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=d_model,
+            nhead=n_heads,
+            dim_feedforward=d_model * 4,
+            dropout=dropout,
+            batch_first=True,
+            norm_first=True,
+        )
+        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=n_layers)
+
+        # Classification head
+        self.classifier = nn.Sequential(
+            nn.Linear(d_model * 2, d_model),  # trajectory + condition
+            nn.LayerNorm(d_model),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(d_model, n_mechanisms),
+        )
+
+    def forward(
+        self,
+        times: torch.Tensor,
+        values: torch.Tensor,
+        conditions: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
+    ) -> Dict[str, torch.Tensor]:
+        """
+        Args:
+            times: (batch, n_timepoints) - time values
+            values: (batch, n_timepoints) - substrate concentrations
+            conditions: (batch, n_condition_features) - experimental conditions
+            mask: (batch, n_timepoints) - True for INVALID points
+
+        Returns:
+            Dict with 'logits'
+        """
+        batch_size = times.shape[0]
+
+        # Stack time and values as features
+        trajectory = torch.stack([times, values], dim=-1)  # (batch, n_timepoints, 2)
+
+        # Project input
+        x = self.input_proj(trajectory)  # (batch, n_timepoints, d_model)
+
+        # Add positional encoding
+        x = self.pos_encoding(x)
+
+        # Convolutions (need channels-first)
+        x_conv = x.transpose(1, 2)  # (batch, d_model, n_timepoints)
+        x_conv = self.conv_layers(x_conv)
+        x = x_conv.transpose(1, 2)  # (batch, n_timepoints, d_model)
+
+        # Transformer
+        x = self.transformer(x, src_key_padding_mask=mask)
+
+        # Mean pooling over time
+        if mask is not None:
+            mask_expanded = (~mask).unsqueeze(-1).float()
+            h_traj = (x * mask_expanded).sum(dim=1) / (mask_expanded.sum(dim=1) + 1e-8)
+        else:
+            h_traj = x.mean(dim=1)  # (batch, d_model)
+
+        # Encode conditions
+        h_cond = self.condition_encoder(conditions)  # (batch, d_model)
+
+        # Combine and classify
+        h_combined = torch.cat([h_traj, h_cond], dim=-1)
+        logits = self.classifier(h_combined)
+
+        return {'logits': logits}
+
+
+# =============================================================================
+# V1: Basic Multi-Condition Classifier
+# =============================================================================
+
+class BasicMultiConditionClassifier(nn.Module):
+    """
+    V1: Basic multi-condition classifier.
+
+    Input: 5 trajectories from different conditions
+    Output: Mechanism classification
+
+    Architecture:
+    - TrajectoryEncoder (2 features: time, substrate)
+    - ConditionEncoder (6 features)
+    - Cross-attention across conditions
+    - Attention pooling
+    - MLP classifier
+
+    NO derived features, NO pairwise comparison module.
+
+    Expected accuracy: ~57%
+    """
+
+    def __init__(
+        self,
+        d_model: int = 128,
+        n_heads: int = 4,
+        n_traj_layers: int = 2,
+        n_cross_layers: int = 3,
+        n_mechanisms: int = 10,
+        dropout: float = 0.1,
+        n_condition_features: int = 6,
+        n_traj_features: int = 2,  # time, substrate only
+    ):
+        super().__init__()
+
+        self.d_model = d_model
+        self.n_mechanisms = n_mechanisms
+
+        # Encode individual trajectories (2 features: time, substrate)
+        self.trajectory_encoder = TrajectoryEncoder(
+            d_model=d_model,
+            n_heads=n_heads,
+            n_layers=n_traj_layers,
+            dropout=dropout,
+            n_traj_features=n_traj_features,
+        )
+
+        # Encode conditions
+        self.condition_encoder = ConditionEncoder(
+            n_condition_features=n_condition_features,
+            d_model=d_model,
+        )
+
+        # Combine trajectory + condition (NO derived features in v1)
+        self.combine = nn.Sequential(
+            nn.Linear(d_model * 2, d_model),  # Only 2 encoders (no derived)
+            nn.LayerNorm(d_model),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+        )
+
+        # Cross-attention across conditions
+        cross_layer = nn.TransformerEncoderLayer(
+            d_model=d_model,
+            nhead=n_heads,
+            dim_feedforward=d_model * 4,
+            dropout=dropout,
+            batch_first=True,
+            norm_first=True,
+        )
+        self.cross_attention = nn.TransformerEncoder(cross_layer, num_layers=n_cross_layers)
+
+        # Attention pooling over conditions
+        self.attention_pool = nn.Linear(d_model, 1)
+
+        # Classification head (NO pairwise features in v1)
+        self.classifier = nn.Sequential(
+            nn.Linear(d_model, d_model),  # Only pooled (no pairwise)
+            nn.LayerNorm(d_model),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(d_model, n_mechanisms),
+        )
+
+    def forward(
+        self,
+        trajectories: torch.Tensor,
+        conditions: torch.Tensor,
+        traj_mask: Optional[torch.Tensor] = None,
+        condition_mask: Optional[torch.Tensor] = None,
+        **kwargs,  # Ignore derived_features if passed
+    ) -> Dict[str, torch.Tensor]:
+        """
+        Args:
+            trajectories: (batch, n_conditions, n_timepoints, 2) - [time, substrate]
+            conditions: (batch, n_conditions, n_condition_features)
+            traj_mask: (batch, n_conditions, n_timepoints) - True for INVALID points
+            condition_mask: (batch, n_conditions) - True for INVALID conditions
+
+        Returns:
+            Dict with 'logits' and 'attention_weights'
+        """
+        batch_size, n_conditions, n_timepoints, _ = trajectories.shape
+
+        # Encode each trajectory independently
+        traj_flat = trajectories.view(batch_size * n_conditions, n_timepoints, -1)
+
+        if traj_mask is not None:
+            traj_mask_flat = traj_mask.view(batch_size * n_conditions, n_timepoints)
+        else:
+            traj_mask_flat = None
+
+        h_traj = self.trajectory_encoder(traj_flat, traj_mask_flat)
+        h_traj = h_traj.view(batch_size, n_conditions, -1)  # (batch, n_cond, d_model)
+
+        # Encode conditions
+        cond_flat = conditions.view(batch_size * n_conditions, -1)
+        h_cond = self.condition_encoder(cond_flat)
+        h_cond = h_cond.view(batch_size, n_conditions, -1)  # (batch, n_cond, d_model)
+
+        # Combine trajectory + condition (no derived features)
+        h_combined = self.combine(torch.cat([h_traj, h_cond], dim=-1))
+
+        # Cross-attention
+        h_cross = self.cross_attention(h_combined, src_key_padding_mask=condition_mask)
+
+        # Attention pooling
+        attn_scores = self.attention_pool(h_cross).squeeze(-1)
+
+        if condition_mask is not None:
+            attn_scores = attn_scores.masked_fill(condition_mask, float('-inf'))
+
+        attn_weights = F.softmax(attn_scores, dim=-1)
+        h_pooled = torch.einsum('bc,bcd->bd', attn_weights, h_cross)
+
+        # Classify (no pairwise features)
+        logits = self.classifier(h_pooled)
+
+        return {
+            'logits': logits,
+            'attention_weights': attn_weights,
+        }
 
 
 class PositionalEncoding(nn.Module):
@@ -490,6 +778,256 @@ class MultiConditionClassifier(nn.Module):
         }
 
 
+class KineticParamHead(nn.Module):
+    """
+    Auxiliary head that predicts kinetic parameters (Vmax_app, Km_app) per condition.
+
+    Forces the model to learn representations that capture mechanism-discriminative
+    kinetic features. For example:
+    - Competitive inhibition: Km_app increases with [I], Vmax unchanged
+    - Uncompetitive inhibition: both Km_app and Vmax decrease with [I]
+    - Mixed inhibition: both change, but with different patterns
+    """
+
+    def __init__(self, d_model: int = 128, n_kinetic_params: int = 2):
+        super().__init__()
+        self.head = nn.Sequential(
+            nn.Linear(d_model, d_model),
+            nn.LayerNorm(d_model),
+            nn.ReLU(),
+            nn.Linear(d_model, n_kinetic_params),
+        )
+
+    def forward(self, h_conditions: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            h_conditions: (batch, n_conditions, d_model) - per-condition representations
+
+        Returns:
+            kinetic_params: (batch, n_conditions, n_kinetic_params)
+        """
+        return self.head(h_conditions)
+
+
+class PatternHead(nn.Module):
+    """
+    Auxiliary head that predicts cross-condition parameter change patterns.
+
+    Predicts slopes of kinetic parameter changes with respect to condition changes:
+    - dVmax/dI: How Vmax changes with inhibitor concentration
+    - dKm/dI: How Km changes with inhibitor concentration
+    - dVmax/dS: How Vmax changes with substrate (for substrate inhibition)
+    - dKm/dS: How Km changes with substrate
+
+    These patterns are the biochemical features that directly distinguish mechanisms.
+    """
+
+    def __init__(self, d_model: int = 128, n_pattern_features: int = 4):
+        super().__init__()
+        self.head = nn.Sequential(
+            nn.Linear(d_model, d_model),
+            nn.LayerNorm(d_model),
+            nn.ReLU(),
+            nn.Linear(d_model, n_pattern_features),
+        )
+
+    def forward(self, h_pooled: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            h_pooled: (batch, d_model) - pooled representation across conditions
+
+        Returns:
+            pattern: (batch, n_pattern_features)
+        """
+        return self.head(h_pooled)
+
+
+class MultiTaskClassifier(nn.Module):
+    """
+    Multi-task version of MultiConditionClassifier with auxiliary heads.
+
+    Adds two auxiliary prediction tasks:
+    1. Kinetic parameter prediction (Vmax_app, Km_app per condition)
+    2. Parameter change pattern prediction (dKm/dI, dVmax/dI slopes)
+
+    The auxiliary tasks force the model to learn mechanism-discriminative features
+    rather than relying on superficial patterns. This is especially important for:
+    - Inhibition triad (competitive/uncompetitive/mixed)
+    - Bi-substrate triad (ordered/random/ping_pong)
+    """
+
+    def __init__(
+        self,
+        d_model: int = 128,
+        n_heads: int = 4,
+        n_traj_layers: int = 2,
+        n_cross_layers: int = 3,
+        n_mechanisms: int = 10,
+        dropout: float = 0.1,
+        n_condition_features: int = 8,
+        n_traj_features: int = 5,
+        n_derived_features: int = 8,
+        n_kinetic_params: int = 2,
+        n_pattern_features: int = 4,
+    ):
+        super().__init__()
+
+        self.d_model = d_model
+        self.n_mechanisms = n_mechanisms
+
+        # Encode individual trajectories
+        self.trajectory_encoder = TrajectoryEncoder(
+            d_model=d_model,
+            n_heads=n_heads,
+            n_layers=n_traj_layers,
+            dropout=dropout,
+            n_traj_features=n_traj_features,
+        )
+
+        # Encode conditions
+        self.condition_encoder = ConditionEncoder(
+            n_condition_features=n_condition_features,
+            d_model=d_model,
+        )
+
+        # Encode derived kinetic features
+        self.derived_encoder = DerivedFeatureEncoder(
+            n_derived_features=n_derived_features,
+            d_model=d_model,
+        )
+
+        # Combine trajectory + condition + derived features
+        self.combine = nn.Sequential(
+            nn.Linear(d_model * 3, d_model),
+            nn.LayerNorm(d_model),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+        )
+
+        # Cross-attention across conditions
+        cross_layer = nn.TransformerEncoderLayer(
+            d_model=d_model,
+            nhead=n_heads,
+            dim_feedforward=d_model * 4,
+            dropout=dropout,
+            batch_first=True,
+            norm_first=True,
+        )
+        self.cross_attention = nn.TransformerEncoder(cross_layer, num_layers=n_cross_layers)
+
+        # Pairwise comparison module
+        self.pairwise = PairwiseComparisonModule(
+            d_model=d_model,
+            n_heads=n_heads,
+            dropout=dropout,
+        )
+
+        # Attention pooling over conditions
+        self.attention_pool = nn.Linear(d_model, 1)
+
+        # === AUXILIARY HEADS ===
+        # Kinetic parameter prediction (per condition)
+        self.kinetic_head = KineticParamHead(d_model, n_kinetic_params)
+
+        # Pattern prediction (cross-condition)
+        self.pattern_head = PatternHead(d_model, n_pattern_features)
+
+        # === MAIN CLASSIFICATION HEAD ===
+        self.classifier = nn.Sequential(
+            nn.Linear(d_model * 2, d_model),  # pooled + pairwise
+            nn.LayerNorm(d_model),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(d_model, n_mechanisms),
+        )
+
+    def forward(
+        self,
+        trajectories: torch.Tensor,
+        conditions: torch.Tensor,
+        derived_features: Optional[torch.Tensor] = None,
+        traj_mask: Optional[torch.Tensor] = None,
+        condition_mask: Optional[torch.Tensor] = None,
+    ) -> Dict[str, torch.Tensor]:
+        """
+        Args:
+            trajectories: (batch, n_conditions, n_timepoints, 5)
+            conditions: (batch, n_conditions, n_condition_features)
+            derived_features: (batch, n_conditions, n_derived_features)
+            traj_mask: (batch, n_conditions, n_timepoints) - True for INVALID points
+            condition_mask: (batch, n_conditions) - True for INVALID conditions
+
+        Returns:
+            Dict with:
+                'logits': (batch, n_mechanisms) - main classification
+                'attention_weights': (batch, n_conditions)
+                'kinetic_params': (batch, n_conditions, n_kinetic_params) - auxiliary
+                'param_pattern': (batch, n_pattern_features) - auxiliary
+        """
+        batch_size, n_conditions, n_timepoints, _ = trajectories.shape
+
+        # Encode each trajectory independently
+        traj_flat = trajectories.view(batch_size * n_conditions, n_timepoints, -1)
+
+        if traj_mask is not None:
+            traj_mask_flat = traj_mask.view(batch_size * n_conditions, n_timepoints)
+        else:
+            traj_mask_flat = None
+
+        h_traj = self.trajectory_encoder(traj_flat, traj_mask_flat)
+        h_traj = h_traj.view(batch_size, n_conditions, -1)
+
+        # Encode conditions
+        cond_flat = conditions.view(batch_size * n_conditions, -1)
+        h_cond = self.condition_encoder(cond_flat)
+        h_cond = h_cond.view(batch_size, n_conditions, -1)
+
+        # Encode derived features
+        if derived_features is not None:
+            derived_flat = derived_features.view(batch_size * n_conditions, -1)
+            h_derived = self.derived_encoder(derived_flat)
+            h_derived = h_derived.view(batch_size, n_conditions, -1)
+        else:
+            h_derived = torch.zeros_like(h_traj)
+
+        # Combine representations
+        h_combined = self.combine(torch.cat([h_traj, h_cond, h_derived], dim=-1))
+
+        # Cross-attention
+        h_cross = self.cross_attention(h_combined, src_key_padding_mask=condition_mask)
+
+        # === AUXILIARY HEAD 1: Kinetic parameters per condition ===
+        kinetic_params = self.kinetic_head(h_cross)  # (batch, n_conditions, 2)
+
+        # Pairwise comparison
+        h_pairwise = self.pairwise(h_combined, conditions, condition_mask)
+
+        # Attention pooling
+        attn_scores = self.attention_pool(h_cross).squeeze(-1)
+
+        if condition_mask is not None:
+            attn_scores = attn_scores.masked_fill(condition_mask, float('-inf'))
+
+        attn_weights = F.softmax(attn_scores, dim=-1)
+        h_pooled = torch.einsum('bc,bcd->bd', attn_weights, h_cross)
+
+        # === AUXILIARY HEAD 2: Parameter change pattern ===
+        param_pattern = self.pattern_head(h_pooled)  # (batch, 4)
+
+        # Combine for classification
+        h_final = torch.cat([h_pooled, h_pairwise], dim=-1)
+
+        # Classify
+        logits = self.classifier(h_final)
+
+        return {
+            'logits': logits,
+            'attention_weights': attn_weights,
+            'kinetic_params': kinetic_params,
+            'param_pattern': param_pattern,
+        }
+
+
 def create_multi_condition_model(
     d_model: int = 128,
     n_heads: int = 4,
@@ -512,4 +1050,77 @@ def create_multi_condition_model(
         n_condition_features=n_condition_features,
         n_traj_features=n_traj_features,
         n_derived_features=n_derived_features,
+    )
+
+
+def create_multi_task_model(
+    d_model: int = 128,
+    n_heads: int = 4,
+    n_traj_layers: int = 2,
+    n_cross_layers: int = 3,
+    n_mechanisms: int = 10,
+    dropout: float = 0.1,
+    n_condition_features: int = 8,
+    n_traj_features: int = 5,
+    n_derived_features: int = 8,
+    n_kinetic_params: int = 2,
+    n_pattern_features: int = 4,
+) -> MultiTaskClassifier:
+    """Factory function to create a multi-task classifier with auxiliary heads."""
+    return MultiTaskClassifier(
+        d_model=d_model,
+        n_heads=n_heads,
+        n_traj_layers=n_traj_layers,
+        n_cross_layers=n_cross_layers,
+        n_mechanisms=n_mechanisms,
+        dropout=dropout,
+        n_condition_features=n_condition_features,
+        n_traj_features=n_traj_features,
+        n_derived_features=n_derived_features,
+        n_kinetic_params=n_kinetic_params,
+        n_pattern_features=n_pattern_features,
+    )
+
+
+def create_single_curve_model(
+    d_model: int = 128,
+    n_heads: int = 4,
+    n_layers: int = 2,
+    n_mechanisms: int = 10,
+    dropout: float = 0.1,
+    n_traj_features: int = 2,
+    n_condition_features: int = 4,
+) -> SingleCurveClassifier:
+    """Factory function to create a v0 single-curve classifier."""
+    return SingleCurveClassifier(
+        d_model=d_model,
+        n_heads=n_heads,
+        n_layers=n_layers,
+        n_mechanisms=n_mechanisms,
+        dropout=dropout,
+        n_traj_features=n_traj_features,
+        n_condition_features=n_condition_features,
+    )
+
+
+def create_basic_multi_condition_model(
+    d_model: int = 128,
+    n_heads: int = 4,
+    n_traj_layers: int = 2,
+    n_cross_layers: int = 3,
+    n_mechanisms: int = 10,
+    dropout: float = 0.1,
+    n_condition_features: int = 6,
+    n_traj_features: int = 2,
+) -> BasicMultiConditionClassifier:
+    """Factory function to create a v1 basic multi-condition classifier."""
+    return BasicMultiConditionClassifier(
+        d_model=d_model,
+        n_heads=n_heads,
+        n_traj_layers=n_traj_layers,
+        n_cross_layers=n_cross_layers,
+        n_mechanisms=n_mechanisms,
+        dropout=dropout,
+        n_condition_features=n_condition_features,
+        n_traj_features=n_traj_features,
     )

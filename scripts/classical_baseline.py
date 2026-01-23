@@ -501,6 +501,8 @@ def evaluate_classical_baseline(samples: List[MultiConditionSample],
     total = 0
     per_mechanism = {m: {'correct': 0, 'total': 0} for m in MECHANISMS}
     confusion = {m1: {m2: 0 for m2 in MECHANISMS} for m1 in MECHANISMS}
+    predictions = []
+    labels = []
 
     for i, sample in enumerate(samples):
         if verbose and i % 50 == 0:
@@ -508,6 +510,12 @@ def evaluate_classical_baseline(samples: List[MultiConditionSample],
 
         true_mech = sample.mechanism
         pred_mech, _ = selector.predict(sample)
+
+        # Track predictions and labels
+        true_idx = MECHANISMS.index(true_mech)
+        pred_idx = MECHANISMS.index(pred_mech)
+        predictions.append(pred_idx)
+        labels.append(true_idx)
 
         per_mechanism[true_mech]['total'] += 1
         confusion[true_mech][pred_mech] += 1
@@ -535,6 +543,8 @@ def evaluate_classical_baseline(samples: List[MultiConditionSample],
         'per_mechanism': per_mech_acc,
         'confusion': confusion,
         'criterion': criterion,
+        'predictions': predictions,
+        'labels': labels,
     }
 
 

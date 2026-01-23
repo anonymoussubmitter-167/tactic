@@ -1,0 +1,59 @@
+# TACTIC-Kinetics Default Training Configuration
+
+# Model Architecture
+model:
+  d_model: 256
+  n_encoder_heads: 8
+  n_encoder_layers: 6
+  d_ff: 1024
+  n_decoder_layers: [256, 128]
+  dropout: 0.1
+  n_conditions: 4
+  temperature: 298.15
+  use_adjoint: false  # Disable for faster training
+
+# Training
+training:
+  learning_rate: 0.0001   # Back to 1e-4, training is stable
+  weight_decay: 0.001     # Reduced from 0.01
+  batch_size: 32
+  n_epochs: 100
+  warmup_epochs: 10       # Longer warmup
+  grad_clip: 10.0         # Relaxed - median grad is ~52, this clips outliers only
+  scheduler: "cosine"
+
+# Loss Weights
+loss:
+  lambda_traj: 1.0        # Trajectory reconstruction
+  lambda_mech: 1.0        # Mechanism classification
+  lambda_thermo: 0.1      # Thermodynamic consistency
+  lambda_prior: 0.01      # Prior regularization
+
+# Trajectory Reconstruction
+trajectory:
+  use_trajectory_loss: false  # Disabled - causes NaN with ODE simulation
+  trajectory_loss_frequency: 4  # Compute every N batches
+  n_trajectory_points: 25
+
+# Data Generation
+data:
+  n_samples_per_mechanism: 5000
+  noise_std: 0.02
+  n_timepoints: 50
+  t_max: 100.0
+  use_thermodynamic_priors: true
+
+# Logging & Checkpoints
+logging:
+  log_interval: 100
+  val_interval: 1
+  save_interval: 10
+  checkpoint_dir: "checkpoints"
+  log_dir: "logs"
+
+# Hardware
+hardware:
+  device: "cuda"
+  use_amp: false  # Disabled - causes NaN with small concentration values
+  num_workers: 4
+  gpus: [1, 3, 5]  # GPU IDs to use (free GPUs)

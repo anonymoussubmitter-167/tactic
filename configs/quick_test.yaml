@@ -1,0 +1,59 @@
+# Quick Test Configuration (small dataset for debugging)
+
+# Model Architecture
+model:
+  d_model: 128
+  n_encoder_heads: 4
+  n_encoder_layers: 3
+  d_ff: 512
+  n_decoder_layers: [128, 64]
+  dropout: 0.1
+  n_conditions: 4
+  temperature: 298.15
+  use_adjoint: false
+
+# Training
+training:
+  learning_rate: 0.0001
+  weight_decay: 0.01
+  batch_size: 16
+  n_epochs: 5
+  warmup_epochs: 1
+  grad_clip: 1.0
+  scheduler: "cosine"
+
+# Loss Weights
+loss:
+  lambda_traj: 1.0
+  lambda_mech: 1.0
+  lambda_thermo: 0.1
+  lambda_prior: 0.01
+
+# Trajectory Reconstruction
+trajectory:
+  use_trajectory_loss: false  # Disable for faster testing
+  trajectory_loss_frequency: 10
+  n_trajectory_points: 15
+
+# Data Generation (SMALL for testing)
+data:
+  n_samples_per_mechanism: 100  # Small!
+  noise_std: 0.02
+  n_timepoints: 30
+  t_max: 100.0
+  use_thermodynamic_priors: true
+
+# Logging
+logging:
+  log_interval: 10
+  val_interval: 1
+  save_interval: 5
+  checkpoint_dir: "checkpoints"
+  log_dir: "logs"
+
+# Hardware
+hardware:
+  device: "cuda"
+  use_amp: false  # Disabled for stability
+  num_workers: 2
+  gpus: [1, 3, 5]  # Free GPUs

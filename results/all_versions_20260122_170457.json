@@ -1,0 +1,77 @@
+{
+  "v0": {
+    "accuracy": 0.106,
+    "per_mechanism": {
+      "michaelis_menten_irreversible": 0.0,
+      "michaelis_menten_reversible": 0.0,
+      "competitive_inhibition": 0.96,
+      "uncompetitive_inhibition": 0.0,
+      "mixed_inhibition": 0.0,
+      "substrate_inhibition": 0.0,
+      "ordered_bi_bi": 0.0,
+      "random_bi_bi": 0.0,
+      "ping_pong": 0.09,
+      "product_inhibition": 0.01
+    }
+  },
+  "v1": {
+    "accuracy": 0.486,
+    "per_mechanism": {
+      "michaelis_menten_irreversible": 0.99,
+      "michaelis_menten_reversible": 0.66,
+      "competitive_inhibition": 0.52,
+      "uncompetitive_inhibition": 0.21,
+      "mixed_inhibition": 0.2,
+      "substrate_inhibition": 0.95,
+      "ordered_bi_bi": 0.09,
+      "random_bi_bi": 0.55,
+      "ping_pong": 0.24,
+      "product_inhibition": 0.45
+    }
+  },
+  "v2": {
+    "accuracy": 0.616,
+    "per_mechanism": {
+      "michaelis_menten_irreversible": 0.97,
+      "michaelis_menten_reversible": 0.6,
+      "competitive_inhibition": 0.53,
+      "uncompetitive_inhibition": 0.59,
+      "mixed_inhibition": 0.47,
+      "substrate_inhibition": 1.0,
+      "ordered_bi_bi": 0.38,
+      "random_bi_bi": 0.39,
+      "ping_pong": 0.54,
+      "product_inhibition": 0.69
+    }
+  },
+  "v3": {
+    "accuracy": 0.62,
+    "per_mechanism": {
+      "michaelis_menten_irreversible": 0.99,
+      "michaelis_menten_reversible": 0.54,
+      "competitive_inhibition": 0.61,
+      "uncompetitive_inhibition": 0.61,
+      "mixed_inhibition": 0.36,
+      "substrate_inhibition": 0.97,
+      "ordered_bi_bi": 0.32,
+      "random_bi_bi": 0.41,
+      "ping_pong": 0.57,
+      "product_inhibition": 0.82
+    }
+  },
+  "classical": {
+    "accuracy": 0.386,
+    "per_mechanism": {
+      "michaelis_menten_irreversible": 0.52,
+      "michaelis_menten_reversible": 0.66,
+      "competitive_inhibition": 0.19,
+      "uncompetitive_inhibition": 0.24,
+      "mixed_inhibition": 0.29,
+      "substrate_inhibition": 0.69,
+      "ordered_bi_bi": 0.09,
+      "random_bi_bi": 0.48,
+      "ping_pong": 0.46,
+      "product_inhibition": 0.24
+    }
+  }
+}

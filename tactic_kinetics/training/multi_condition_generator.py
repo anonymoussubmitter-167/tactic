@@ -471,7 +471,7 @@ class MultiConditionGenerator:
         )
 
         # Determine appropriate time span
-        t_max = self._estimate_reaction_time(rates, conditions)
+        t_max = self._estimate_reaction_time(rates, conditions, mechanism)
         t = np.linspace(0, t_max, self.config.n_timepoints)
 
         # Solve ODE
@@ -593,8 +593,13 @@ class MultiConditionGenerator:
         else:
             raise ValueError(f"Unknown mechanism: {mechanism}")
 
-    def _estimate_reaction_time(self, rates: Dict, conditions: Dict) -> float:
-        """Estimate appropriate reaction time based on kinetic parameters."""
+    def _estimate_reaction_time(self, rates: Dict, conditions: Dict, mechanism: str = None) -> float:
+        """Estimate appropriate reaction time based on kinetic parameters.
+
+        For reversible mechanisms (MM_reversible, product_inhibition), we simulate
+        5x longer to observe equilibrium approach vs gradual slowing behavior.
+        This helps distinguish MM_reversible from product_inhibition.
+        """
         kcat = rates['kcat']
         E0 = conditions['E0']
 
@@ -606,7 +611,15 @@ class MultiConditionGenerator:
 
         t_est = 3 * S0 / (v_max + 1e-10)
 
-        return np.clip(t_est, 10.0, self.config.t_max_default)
+        base_time = np.clip(t_est, 10.0, self.config.t_max_default)
+
+        # For reversible mechanisms, extend time to see equilibrium approach
+        # This helps distinguish MM_reversible (true equilibrium) from
+        # product_inhibition (slowing down but no equilibrium)
+        if mechanism in ['michaelis_menten_reversible', 'product_inhibition']:
+            return min(base_time * 5, self.config.t_max_default * 2)
+
+        return base_time
 
     def _add_noise(self, concentrations: Dict) -> Dict:
         """Add measurement noise to concentrations."""
@@ -681,7 +694,7 @@ def load_dataset(path: str) -> Tuple[List[MultiConditionSample], Optional[MultiC
     if not path.exists():
         raise FileNotFoundError(f"Dataset not found: {path}")
 
-    data = torch.load(path)
+    data = torch.load(path, weights_only=False)
 
     # Reconstruct samples
     samples = []

@@ -1,0 +1,55 @@
+{
+  "results": [
+    {
+      "n_conditions": 1,
+      "tactic_accuracy": 0.128,
+      "classical_accuracy": null
+    },
+    {
+      "n_conditions": 2,
+      "tactic_accuracy": 0.223,
+      "classical_accuracy": null
+    },
+    {
+      "n_conditions": 3,
+      "tactic_accuracy": 0.295,
+      "classical_accuracy": null
+    },
+    {
+      "n_conditions": 5,
+      "tactic_accuracy": 0.331,
+      "classical_accuracy": null
+    },
+    {
+      "n_conditions": 7,
+      "tactic_accuracy": 0.499,
+      "classical_accuracy": null
+    },
+    {
+      "n_conditions": 10,
+      "tactic_accuracy": 0.575,
+      "classical_accuracy": null
+    },
+    {
+      "n_conditions": 15,
+      "tactic_accuracy": 0.598,
+      "classical_accuracy": null
+    },
+    {
+      "n_conditions": 20,
+      "tactic_accuracy": 0.62,
+      "classical_accuracy": null
+    }
+  ],
+  "n_samples": 1000,
+  "n_conditions_tested": [
+    1,
+    2,
+    3,
+    5,
+    7,
+    10,
+    15,
+    20
+  ]
+}

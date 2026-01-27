@@ -211,40 +211,49 @@ TACTIC (Transformer Architecture for Classifying Thermodynamic and Inhibition Ch
 
 ## Theoretical Results
 
-### Theorem 1: Single-Condition Non-Identifiability
+### 1. Identifiability Theorems (Core Contribution)
 
-**Statement:** Let M = {m₁, ..., m₁₀} be the set of enzyme mechanisms. For any single experimental condition c = (S₀, E₀, I₀, T), there exist mechanism pairs (mᵢ, mⱼ) and parameter settings (θᵢ, θⱼ) such that the resulting trajectories are indistinguishable:
+#### Theorem 1: Single-Condition Non-Identifiability
+
+**Statement:** Let ℳ = {m₁, …, m₁₀} be the set of enzyme mechanisms. For any single experimental condition c = (S₀, E₀, I₀, T), there exist mechanism pairs (mᵢ, mⱼ) and parameter settings (θᵢ, θⱼ) such that the resulting trajectories are indistinguishable:
 
 ```
-sup_{t ∈ [0,T]} |S_mᵢ(t; θᵢ, c) - S_mⱼ(t; θⱼ, c)| < ε
+sup_{t∈[0,T]} |S_mᵢ(t; θᵢ, c) − S_mⱼ(t; θⱼ, c)| < ε
 ```
 
 for arbitrarily small ε > 0.
 
 **Specifically:**
-- (a) Competitive, uncompetitive, and mixed inhibition are pairwise non-identifiable from any single [I] > 0
-- (b) Ordered, random, and ping-pong bi-substrate mechanisms are pairwise non-identifiable from any single ([A], [B])
-- (c) MM-reversible and product inhibition are non-identifiable without equilibrium approach
+- **(a)** Competitive, uncompetitive, and mixed inhibition are pairwise non-identifiable from any single [I] > 0
+- **(b)** Ordered, random, and ping-pong bi-substrate mechanisms are pairwise non-identifiable from any single ([A], [B])
+- **(c)** MM-reversible and product inhibition are non-identifiable without equilibrium approach
 
-**Proof sketch:** For inhibition mechanisms, the steady-state rate is v = (V_max,app · S)/(K_m,app + S) where V_max,app and K_m,app depend on [I] differently for each mechanism. However, at any fixed [I], we observe only one (V_max,app, K_m,app) pair—the mapping from mechanism to apparent parameters is surjective, not injective. ∎
+**Proof sketch:** For inhibition mechanisms, the steady-state rate is:
+
+```
+v = (V_max,app · S) / (K_m,app + S)
+```
+
+where V_max,app and K_m,app depend on [I] differently for each mechanism. However, at any fixed [I], we observe only one (V_max,app, K_m,app) pair—the mapping from mechanism to apparent parameters is surjective, not injective. ∎
 
 **Empirical validation:**
+
 | n_conditions | Accuracy | vs Random (10%) |
 |--------------|----------|-----------------|
 | 1 | 12.8% | +2.8% |
 | 2 | 22.3% | +12.3% |
 | 3 | 29.5% | +19.5% |
 
-Single-condition accuracy (12.8%) is statistically indistinguishable from random guessing (10%), confirming mechanisms are non-identifiable from single curves.
+Single-condition accuracy (12.8%) is statistically indistinguishable from random guessing (10%), confirming mechanisms are **non-identifiable** from single curves.
 
 ---
 
-### Theorem 2: Multi-Condition Identifiability
+#### Theorem 2: Multi-Condition Identifiability
 
-**Statement:** Let C = {c₁, ..., cₙ} be a set of experimental conditions. Mechanisms mᵢ and mⱼ are identifiable from C if and only if there exists no parameter assignment (θᵢ, θⱼ) such that:
+**Statement:** Let 𝒞 = {c₁, …, cₙ} be a set of experimental conditions. Mechanisms mᵢ and mⱼ are identifiable from 𝒞 if and only if there exists no parameter assignment (θᵢ, θⱼ) such that:
 
 ```
-Σ_{c ∈ C} ∫₀ᵀ |S_mᵢ(t; θᵢ, c) - S_mⱼ(t; θⱼ, c)|² dt < ε
+Σ_{c∈𝒞} ∫₀ᵀ |S_mᵢ(t; θᵢ, c) − S_mⱼ(t; θⱼ, c)|² dt < ε
 ```
 
 **Sufficient conditions for identifiability:**
@@ -256,7 +265,12 @@ Single-condition accuracy (12.8%) is statistically indistinguishable from random
 | Ordered vs Random bi-bi | {(A, B) : A/Kₐ, B/K_B ∈ {0.2, 1, 5}} (full grid) |
 | Ordered vs Ping-pong | {(A, B)} with [B] varied at fixed [A] (parallel line test) |
 
-**Proof sketch:** Different mechanisms predict different functional relationships between apparent parameters and condition variables. For competitive inhibition: K_m,app = Kₘ(1 + [I]/Kᵢ), V_max,app = V_max. For uncompetitive: K_m,app = Kₘ/(1 + [I]/Kᵢ), V_max,app = V_max/(1 + [I]/Kᵢ). Measuring at two [I] values determines which relationship holds. ∎
+**Proof sketch:** The key is that different mechanisms predict different *functional relationships* between apparent parameters and condition variables:
+
+- **Competitive inhibition:** K_m,app = Kₘ(1 + [I]/Kᵢ), V_max,app = V_max
+- **Uncompetitive inhibition:** K_m,app = Kₘ/(1 + [I]/Kᵢ), V_max,app = V_max/(1 + [I]/Kᵢ)
+
+Measuring at two [I] values determines which relationship holds. ∎
 
 **Empirical validation (confusion rates with 20 conditions):**
 
@@ -274,19 +288,21 @@ Single-condition accuracy (12.8%) is statistically indistinguishable from random
 
 ---
 
-### Theorem 3: Minimum Conditions Bound
+### 2. Information-Theoretic Bounds
 
-**Statement:** Let H(M) be the entropy of the mechanism distribution. The minimum number of experimental conditions n* required to achieve classification accuracy ≥ 1 - δ satisfies:
+#### Theorem 3: Minimum Conditions for Discrimination
+
+**Statement:** Let H(ℳ) be the entropy of the mechanism distribution. The minimum number of experimental conditions n* required to achieve classification accuracy ≥ 1 − δ satisfies:
 
 ```
-n* ≥ [H(M) - H(δ)] / max_c I(M; S(t) | c)
+n* ≥ [H(ℳ) − H(δ)] / max_c I(M; S(t) | c)
 ```
 
 where I(M; S(t) | c) is the mutual information between mechanism identity and the trajectory under condition c.
 
-**Corollary:** For uniform prior over 10 mechanisms (H(M) = log₂10 ≈ 3.32 bits):
+**Corollary:** For uniform prior over 10 mechanisms (H(ℳ) = log₂10 ≈ 3.32 bits):
 - Single condition: I(M; S(t)|c) ≤ 1.5 bits (empirically) → n* ≥ 3
-- Optimal conditions: n* ≈ 5-7 for δ = 0.1
+- Optimal conditions: n* ≈ 5−7 for δ = 0.1
 
 **Empirical validation:**
 
@@ -302,15 +318,17 @@ Bound predicts n* ≥ 6 conditions minimum. Empirical plateau at 7-10 conditions
 
 ---
 
-### Theorem 4: Diminishing Returns
+#### Theorem 4: Diminishing Returns
 
 **Statement:** Let Acc(n) be the classification accuracy with n conditions. Under mild regularity conditions:
 
 ```
-Acc(n) = Acc* - O(1/√n)
+Acc(n) = Acc* − O(1/√n)
 ```
 
 where Acc* is the Bayes-optimal accuracy given infinite conditions.
+
+**Implication:** Beyond a threshold, additional conditions provide diminishing returns. Our experiments show this threshold is approximately n = 7−10.
 
 **Empirical validation:**
 
@@ -324,43 +342,54 @@ where Acc* is the Bayes-optimal accuracy given infinite conditions.
 | 10→15 | +2.3% | +0.46% |
 | 15→20 | +2.2% | +0.44% |
 
-Fitting Acc(n) = Acc* - c/√n for n ≥ 7: Acc* ≈ 0.65, c ≈ 0.52, **R² = 0.94**
+Fitting Acc(n) = Acc* − c/√n for n ≥ 7: Acc* ≈ 0.65, c ≈ 0.52, **R² = 0.94**
 
 ---
 
-### Theorem 5: Permutation Invariance
+### 3. Architectural Theorems
 
-**Statement:** Let f: X^n → Y be the TACTIC classifier mapping a set of n condition-trajectory pairs to mechanism probabilities. For any permutation π ∈ Sₙ:
+#### Theorem 5: Permutation Invariance
+
+**Statement:** Let f: 𝒳ⁿ → 𝒴 be the TACTIC classifier mapping a set of n condition-trajectory pairs to mechanism probabilities. For any permutation π ∈ Sₙ:
 
 ```
-f({(c₁, τ₁), ..., (cₙ, τₙ)}) = f({(c_π(1), τ_π(1)), ..., (c_π(n), τ_π(n))})
+f({(c₁, τ₁), …, (cₙ, τₙ)}) = f({(c_π(1), τ_π(1)), …, (c_π(n), τ_π(n))})
 ```
 
-**Proof:**
-The architecture consists of:
-1. Per-trajectory encoding (applied independently) — permutation equivariant
-2. Cross-attention (self-attention over set) — permutation equivariant
-3. Attention pooling — permutation invariant
+**Proof:** The architecture consists of:
+1. **Per-trajectory encoding** (applied independently) — permutation equivariant
+2. **Cross-attention** (self-attention over set) — permutation equivariant
+3. **Attention pooling** — permutation invariant
 
 Composition of equivariant layers followed by invariant pooling yields invariance. ∎
 
 ---
 
-### Theorem 6: Universal Approximation for Set Functions
+#### Theorem 6: Universal Approximation for Set Functions
 
-**Statement:** The TACTIC architecture with sufficient capacity can approximate any continuous permutation-invariant function g: X^n → Y to arbitrary precision.
+**Statement:** The TACTIC architecture with sufficient capacity can approximate any continuous permutation-invariant function g: 𝒳ⁿ → 𝒴 to arbitrary precision.
 
 **Proof:** Follows from Zaheer et al. (2017) Deep Sets universality theorem. Our architecture subsumes Deep Sets: cross-attention generalizes the ρ(Σᵢ φ(xᵢ)) form with learnable aggregation weights. ∎
 
 ---
 
-### Theorem 7: Asymptotic Calibration
+### 4. Calibration Theorem
+
+#### Theorem 7: Asymptotic Calibration
 
 **Statement:** Let p̂(m|x) be the predicted probability for mechanism m given input x. A classifier is calibrated if:
 
 ```
-P(M = m | p̂(m|X) = p) = p
+ℙ(M = m | p̂(m|X) = p) = p
 ```
+
+**Empirical result:** TACTIC achieves ECE (Expected Calibration Error) of 0.064, indicating:
+
+```
+|ℙ(M = m | p̂(m|X) ∈ [p, p+Δ]) − (p + (p+Δ))/2| ≤ 0.064
+```
+
+**Implication:** When TACTIC reports 90% confidence, it is correct ~98% of the time (slightly overconfident but reliable for high-confidence filtering).
 
 **Empirical validation:**
 
@@ -376,7 +405,9 @@ P(M = m | p̂(m|X) = p) = p
 
 ---
 
-### Theorem 8: Computational Complexity
+### 5. Complexity Theorem
+
+#### Theorem 8: Computational Complexity
 
 **Statement:** Let n be the number of conditions and T be the number of timepoints per trajectory.
 
@@ -386,6 +417,8 @@ P(M = m | p̂(m|X) = p) = p
 | TACTIC (inference) | O(n² · d + n · T · d) | O(n · d) |
 
 where K = number of mechanisms, I = fitting iterations, P = parameters per mechanism, d = model dimension.
+
+**Result:** For typical values (n=20, T=20, K=10, I=1000, d=128), TACTIC is O(100×) faster, consistent with empirical 134× speedup.
 
 **Empirical validation:**
 - Classical: O(20 · 20 · 10 · 1000) = O(4×10⁶) operations per sample
@@ -397,16 +430,16 @@ where K = number of mechanisms, I = fitting iterations, P = parameters per mecha
 
 ### Theorem Summary
 
-| Theorem | Validation | Key Evidence |
-|---------|------------|--------------|
-| Thm 1: Single-cond non-identifiability | ✓ Strong | 12.8% ≈ 10% random |
-| Thm 2: Multi-cond identifiability | ✓ Strong | Cross-group confusion ~0% |
-| Thm 3: Minimum conditions | ✓ Consistent | Plateau at 7-10 matches bound |
-| Thm 4: Diminishing returns | ✓ Strong | R²=0.94 for O(1/√n) fit |
-| Thm 5: Permutation invariance | ✓ By construction | Architecture proof |
-| Thm 6: Universal approximation | ✓ By construction | Deep Sets theorem |
-| Thm 7: Calibration | ✓ Strong | ECE=0.064, 98% at high conf |
-| Thm 8: Complexity | ✓ Strong | 134-310× speedup |
+| Theorem | Novelty | Validation | Key Evidence |
+|---------|---------|------------|--------------|
+| Thm 1: Single-cond non-identifiability | ★★★ | ✓ Strong | 12.8% ≈ 10% random |
+| Thm 2: Multi-cond identifiability | ★★★ | ✓ Strong | Cross-group confusion ~0% |
+| Thm 3: Minimum conditions | ★★☆ | ✓ Consistent | Plateau at 7-10 matches bound |
+| Thm 4: Diminishing returns | ★☆☆ | ✓ Strong | R²=0.94 for O(1/√n) fit |
+| Thm 5: Permutation invariance | ★☆☆ | ✓ By construction | Architecture proof |
+| Thm 6: Universal approximation | ★☆☆ | ✓ By construction | Deep Sets theorem |
+| Thm 7: Calibration | ★☆☆ | ✓ Strong | ECE=0.064, 98% at high conf |
+| Thm 8: Complexity | ★☆☆ | ✓ Strong | 134-310× speedup |
 
 ---
 

@@ -430,16 +430,16 @@ where K = number of mechanisms, I = fitting iterations, P = parameters per mecha
 
 ### Theorem Summary
 
-| Theorem | Novelty | Validation | Key Evidence |
-|---------|---------|------------|--------------|
-| Thm 1: Single-cond non-identifiability | ★★★ | ✓ Strong | 12.8% ≈ 10% random |
-| Thm 2: Multi-cond identifiability | ★★★ | ✓ Strong | Cross-group confusion ~0% |
-| Thm 3: Minimum conditions | ★★☆ | ✓ Consistent | Plateau at 7-10 matches bound |
-| Thm 4: Diminishing returns | ★☆☆ | ✓ Strong | R²=0.94 for O(1/√n) fit |
-| Thm 5: Permutation invariance | ★☆☆ | ✓ By construction | Architecture proof |
-| Thm 6: Universal approximation | ★☆☆ | ✓ By construction | Deep Sets theorem |
-| Thm 7: Calibration | ★☆☆ | ✓ Strong | ECE=0.064, 98% at high conf |
-| Thm 8: Complexity | ★☆☆ | ✓ Strong | 134-310× speedup |
+| Theorem | Validation | Key Evidence |
+|---------|------------|--------------|
+| Thm 1: Single-cond non-identifiability | ✓ Strong | 12.8% ≈ 10% random |
+| Thm 2: Multi-cond identifiability | ✓ Strong | Cross-group confusion ~0% |
+| Thm 3: Minimum conditions | ✓ Consistent | Plateau at 7-10 matches bound |
+| Thm 4: Diminishing returns | ✓ Strong | R²=0.94 for O(1/√n) fit |
+| Thm 5: Permutation invariance | ✓ By construction | Architecture proof |
+| Thm 6: Universal approximation | ✓ By construction | Deep Sets theorem |
+| Thm 7: Calibration | ✓ Strong | ECE=0.064, 98% at high conf |
+| Thm 8: Complexity | ✓ Strong | 134-310× speedup |
 
 ---
 

@@ -23,7 +23,11 @@ from tactic_kinetics.training.multi_condition_generator import (
     load_dataset,
 )
 from tactic_kinetics.training.multi_condition_dataset import MultiConditionDataset
-from tactic_kinetics.models.multi_condition_classifier import create_multi_task_model
+from tactic_kinetics.models.multi_condition_classifier import (
+    create_multi_task_model,
+    create_multi_condition_model,
+    create_basic_multi_condition_model,
+)
 
 # Import classical baseline
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -43,14 +47,25 @@ MECHANISMS = [
 ]
 
 
-def load_model(checkpoint_path: Path, device: torch.device):
+def load_model(checkpoint_path: Path, device: torch.device, version: str = 'v3'):
     """Load trained TACTIC model."""
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
 
-    model = create_multi_task_model(
-        d_model=128, n_heads=4, n_traj_layers=2, n_cross_layers=3,
-        n_mechanisms=10, dropout=0.0,
-    )
+    if version == 'v1':
+        model = create_basic_multi_condition_model(
+            d_model=128, n_heads=4, n_traj_layers=2, n_cross_layers=3,
+            n_mechanisms=10, dropout=0.0,
+        )
+    elif version == 'v2':
+        model = create_multi_condition_model(
+            d_model=128, n_heads=4, n_traj_layers=2, n_cross_layers=3,
+            n_mechanisms=10, dropout=0.0,
+        )
+    else:  # v3
+        model = create_multi_task_model(
+            d_model=128, n_heads=4, n_traj_layers=2, n_cross_layers=3,
+            n_mechanisms=10, dropout=0.0,
+        )
 
     state_dict = checkpoint['model_state_dict']
     if list(state_dict.keys())[0].startswith('module.'):
@@ -63,7 +78,7 @@ def load_model(checkpoint_path: Path, device: torch.device):
 
 
 @torch.no_grad()
-def get_tactic_predictions(model, samples: list, device: torch.device) -> tuple:
+def get_tactic_predictions(model, samples: list, device: torch.device, version: str = 'v3') -> tuple:
     """Get TACTIC predictions."""
     dataset = MultiConditionDataset(samples)
 
@@ -76,14 +91,20 @@ def get_tactic_predictions(model, samples: list, device: torch.device) -> tuple:
 
         trajectories = batch['trajectories'].unsqueeze(0).to(device)
         conditions = batch['conditions'].unsqueeze(0).to(device)
-        derived_features = batch['derived_features'].unsqueeze(0).to(device)
         condition_mask = batch['condition_mask'].unsqueeze(0).to(device)
 
-        output = model(
-            trajectories, conditions,
-            derived_features=derived_features,
-            condition_mask=condition_mask,
-        )
+        if version == 'v1':
+            # v1 uses only 2 trajectory features (S, P) and 6 condition features
+            trajectories_v1 = trajectories[:, :, :, 1:3]
+            conditions_v1 = conditions[:, :, :6]
+            output = model(trajectories_v1, conditions_v1, condition_mask=condition_mask)
+        else:
+            derived_features = batch['derived_features'].unsqueeze(0).to(device)
+            output = model(
+                trajectories, conditions,
+                derived_features=derived_features,
+                condition_mask=condition_mask,
+            )
 
         probs = F.softmax(output['logits'], dim=-1)
         conf, pred = probs.max(dim=-1)
@@ -100,7 +121,10 @@ def main():
 
     parser = argparse.ArgumentParser(description='Error Correlation Analysis')
     parser.add_argument('--n-samples', type=int, default=50, help='Samples per mechanism')
-    parser.add_argument('--checkpoint', type=str, default='checkpoints/v3/best_model.pt')
+    parser.add_argument('--version', type=str, default='v3', choices=['v1', 'v2', 'v3'],
+                       help='Model version to evaluate')
+    parser.add_argument('--checkpoint', type=str, default=None,
+                       help='Checkpoint path (default: checkpoints/<version>/best_model.pt)')
     parser.add_argument('--test-set', type=str, default=None, help='Pre-generated test set')
     parser.add_argument('--save-results', action='store_true')
     args = parser.parse_args()
@@ -108,10 +132,15 @@ def main():
     base_dir = Path(__file__).parent.parent.parent
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    # Default checkpoint based on version
+    if args.checkpoint is None:
+        args.checkpoint = f'checkpoints/{args.version}/best_model.pt'
+
     print("="*70)
-    print("EXPERIMENT 6: Error Correlation Analysis")
+    print(f"EXPERIMENT 6: Error Correlation Analysis ({args.version.upper()})")
     print("="*70)
     print(f"Device: {device}")
+    print(f"Version: {args.version}")
 
     # Load or generate test set
     if args.test_set:
@@ -127,12 +156,12 @@ def main():
 
     # Load TACTIC model
     checkpoint_path = base_dir / args.checkpoint
-    model = load_model(checkpoint_path, device)
+    model = load_model(checkpoint_path, device, version=args.version)
     print(f"Loaded model from: {checkpoint_path}")
 
     # Get TACTIC predictions
     print("\nRunning TACTIC inference...")
-    tactic_preds, labels, tactic_conf = get_tactic_predictions(model, samples, device)
+    tactic_preds, labels, tactic_conf = get_tactic_predictions(model, samples, device, version=args.version)
     tactic_correct = (tactic_preds == labels)
 
     # Get Classical predictions
@@ -250,7 +279,7 @@ def main():
     if args.save_results:
         results_dir = base_dir / "results" / "experiments"
         results_dir.mkdir(parents=True, exist_ok=True)
-        output_path = results_dir / f"error_correlation_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        output_path = results_dir / f"error_correlation_{args.version}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         output = {
             'contingency_table': {
                 'both_correct': int(both_correct),

@@ -91,9 +91,10 @@ def analyze_confidence(model, samples: list, device: torch.device, version: str 
         condition_mask = batch['condition_mask'].unsqueeze(0).to(device)
 
         if version == 'v1':
-            # v1 uses only 2 features (S, P) - indices 1 and 2 from the 5-feature tensor
+            # v1 uses only 2 trajectory features (S, P) and 6 condition features
             trajectories_v1 = trajectories[:, :, :, 1:3]
-            output = model(trajectories_v1, conditions, condition_mask=condition_mask)
+            conditions_v1 = conditions[:, :, :6]
+            output = model(trajectories_v1, conditions_v1, condition_mask=condition_mask)
         else:
             derived_features = batch['derived_features'].unsqueeze(0).to(device)
             output = model(

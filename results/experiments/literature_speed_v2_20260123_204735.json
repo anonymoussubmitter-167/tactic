@@ -1,0 +1,89 @@
+{
+  "literature_cases": [
+    {
+      "enzyme": "Alcohol dehydrogenase (yeast)",
+      "ec_number": "EC 1.1.1.1",
+      "mechanism": "ordered_bi_bi",
+      "evidence": "Theorell-Chance mechanism, classic ordered bi-bi",
+      "reference": "Theorell & Chance, 1951; Dalziel, 1963",
+      "key_observation": "NAD+ binds first, NADH released last"
+    },
+    {
+      "enzyme": "Lactate dehydrogenase",
+      "ec_number": "EC 1.1.1.27",
+      "mechanism": "ordered_bi_bi",
+      "evidence": "Compulsory order mechanism",
+      "reference": "Holbrook et al., 1975",
+      "key_observation": "NADH/NAD+ always binds before pyruvate/lactate"
+    },
+    {
+      "enzyme": "Hexokinase",
+      "ec_number": "EC 2.7.1.1",
+      "mechanism": "random_bi_bi",
+      "evidence": "Random sequential mechanism",
+      "reference": "Fromm & Zewe, 1962",
+      "key_observation": "Either glucose or ATP can bind first"
+    },
+    {
+      "enzyme": "Aspartate aminotransferase",
+      "ec_number": "EC 2.6.1.1",
+      "mechanism": "ping_pong",
+      "evidence": "Classic ping-pong bi-bi with PMP intermediate",
+      "reference": "Velick & Vavra, 1962",
+      "key_observation": "Parallel lines in double-reciprocal plots"
+    },
+    {
+      "enzyme": "Chymotrypsin + benzamidine",
+      "ec_number": "EC 3.4.21.1",
+      "mechanism": "competitive_inhibition",
+      "evidence": "Benzamidine is classic competitive inhibitor",
+      "reference": "Stroud et al., 1974",
+      "key_observation": "Km increases, Vmax unchanged with inhibitor"
+    },
+    {
+      "enzyme": "Acetylcholinesterase + edrophonium",
+      "ec_number": "EC 3.1.1.7",
+      "mechanism": "competitive_inhibition",
+      "evidence": "Reversible active site binding",
+      "reference": "Quinn, 1987",
+      "key_observation": "Inhibition overcome by high substrate"
+    },
+    {
+      "enzyme": "Alkaline phosphatase + L-phenylalanine",
+      "ec_number": "EC 3.1.3.1",
+      "mechanism": "uncompetitive_inhibition",
+      "evidence": "Binds only to ES complex",
+      "reference": "Hoylaerts et al., 1997",
+      "key_observation": "Both Km and Vmax decrease proportionally"
+    },
+    {
+      "enzyme": "Xanthine oxidase",
+      "ec_number": "EC 1.17.3.2",
+      "mechanism": "substrate_inhibition",
+      "evidence": "Inhibited by high xanthine concentrations",
+      "reference": "Massey et al., 1969",
+      "key_observation": "Bell-shaped velocity vs [S] curve"
+    },
+    {
+      "enzyme": "Phosphofructokinase",
+      "ec_number": "EC 2.7.1.11",
+      "mechanism": "substrate_inhibition",
+      "evidence": "ATP inhibition at high concentrations",
+      "reference": "Uyeda, 1979",
+      "key_observation": "Regulatory mechanism for glycolysis control"
+    },
+    {
+      "enzyme": "Fumarase",
+      "ec_number": "EC 4.2.1.2",
+      "mechanism": "michaelis_menten_reversible",
+      "evidence": "Fully reversible hydration/dehydration",
+      "reference": "Alberty, 1954",
+      "key_observation": "Approaches equilibrium, product inhibition"
+    }
+  ],
+  "speed_comparison": {
+    "tactic_ms_per_sample": 16.827201545238495,
+    "classical_s_per_sample": 5.514671759009361,
+    "speedup": 327.7236410453418
+  }
+}

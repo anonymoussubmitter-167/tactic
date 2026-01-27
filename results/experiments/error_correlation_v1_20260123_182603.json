@@ -1,0 +1,14 @@
+{
+  "contingency_table": {
+    "both_correct": 71,
+    "tactic_only": 30,
+    "classical_only": 323,
+    "both_wrong": 576
+  },
+  "tactic_accuracy": 0.101,
+  "classical_accuracy": 0.394,
+  "disagreement_rate": 0.798,
+  "correlation": 0.21194010658391516,
+  "ensemble_upper_bound": 0.424,
+  "n_samples": 1000
+}

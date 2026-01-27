@@ -23,7 +23,11 @@ from tactic_kinetics.training.multi_condition_generator import (
     load_dataset,
 )
 from tactic_kinetics.training.multi_condition_dataset import MultiConditionDataset
-from tactic_kinetics.models.multi_condition_classifier import create_multi_task_model
+from tactic_kinetics.models.multi_condition_classifier import (
+    create_multi_task_model,
+    create_multi_condition_model,
+    create_basic_multi_condition_model,
+)
 
 # Import classical baseline
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -127,14 +131,25 @@ LITERATURE_CASES = [
 ]
 
 
-def load_model(checkpoint_path: Path, device: torch.device):
+def load_model(checkpoint_path: Path, device: torch.device, version: str = 'v3'):
     """Load trained TACTIC model."""
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
 
-    model = create_multi_task_model(
-        d_model=128, n_heads=4, n_traj_layers=2, n_cross_layers=3,
-        n_mechanisms=10, dropout=0.0,
-    )
+    if version == 'v1':
+        model = create_basic_multi_condition_model(
+            d_model=128, n_heads=4, n_traj_layers=2, n_cross_layers=3,
+            n_mechanisms=10, dropout=0.0,
+        )
+    elif version == 'v2':
+        model = create_multi_condition_model(
+            d_model=128, n_heads=4, n_traj_layers=2, n_cross_layers=3,
+            n_mechanisms=10, dropout=0.0,
+        )
+    else:  # v3
+        model = create_multi_task_model(
+            d_model=128, n_heads=4, n_traj_layers=2, n_cross_layers=3,
+            n_mechanisms=10, dropout=0.0,
+        )
 
     state_dict = checkpoint['model_state_dict']
     if list(state_dict.keys())[0].startswith('module.'):
@@ -147,7 +162,7 @@ def load_model(checkpoint_path: Path, device: torch.device):
 
 
 @torch.no_grad()
-def time_tactic_inference(model, samples: list, device: torch.device) -> dict:
+def time_tactic_inference(model, samples: list, device: torch.device, version: str = 'v3') -> dict:
     """Time TACTIC inference per mechanism."""
     dataset = MultiConditionDataset(samples)
 
@@ -160,19 +175,35 @@ def time_tactic_inference(model, samples: list, device: torch.device) -> dict:
 
         trajectories = batch['trajectories'].unsqueeze(0).to(device)
         conditions = batch['conditions'].unsqueeze(0).to(device)
-        derived_features = batch['derived_features'].unsqueeze(0).to(device)
         condition_mask = batch['condition_mask'].unsqueeze(0).to(device)
 
-        # Warm up GPU
-        if i == 0:
+        if version == 'v1':
+            # v1 uses only 2 trajectory features (S, P) and 6 condition features
+            trajectories_v1 = trajectories[:, :, :, 1:3]
+            conditions_v1 = conditions[:, :, :6]
+
+            # Warm up GPU
+            if i == 0:
+                _ = model(trajectories_v1, conditions_v1, condition_mask=condition_mask)
+                if device.type == 'cuda':
+                    torch.cuda.synchronize()
+
+            start = time.perf_counter()
+            _ = model(trajectories_v1, conditions_v1, condition_mask=condition_mask)
+        else:
+            derived_features = batch['derived_features'].unsqueeze(0).to(device)
+
+            # Warm up GPU
+            if i == 0:
+                _ = model(trajectories, conditions, derived_features=derived_features,
+                         condition_mask=condition_mask)
+                if device.type == 'cuda':
+                    torch.cuda.synchronize()
+
+            start = time.perf_counter()
             _ = model(trajectories, conditions, derived_features=derived_features,
                      condition_mask=condition_mask)
-            if device.type == 'cuda':
-                torch.cuda.synchronize()
 
-        start = time.perf_counter()
-        _ = model(trajectories, conditions, derived_features=derived_features,
-                 condition_mask=condition_mask)
         if device.type == 'cuda':
             torch.cuda.synchronize()
         elapsed = time.perf_counter() - start
@@ -191,7 +222,7 @@ def time_classical_inference(samples: list) -> dict:
         mech_name = sample.mechanism
 
         start = time.perf_counter()
-        _ = selector.select_model(sample, criterion='aic')
+        _ = selector.predict(sample)
         elapsed = time.perf_counter() - start
 
         times_by_mechanism[mech_name].append(elapsed)
@@ -204,7 +235,10 @@ def main():
 
     parser = argparse.ArgumentParser(description='Literature Cases and Speed Analysis')
     parser.add_argument('--n-samples', type=int, default=20, help='Samples per mechanism for speed test')
-    parser.add_argument('--checkpoint', type=str, default='checkpoints/v3/best_model.pt')
+    parser.add_argument('--version', type=str, default='v3', choices=['v1', 'v2', 'v3'],
+                       help='Model version to evaluate')
+    parser.add_argument('--checkpoint', type=str, default=None,
+                       help='Checkpoint path (default: checkpoints/<version>/best_model.pt)')
     parser.add_argument('--test-set', type=str, default=None, help='Pre-generated test set')
     parser.add_argument('--skip-speed-test', action='store_true', help='Skip speed comparison')
     parser.add_argument('--save-results', action='store_true')
@@ -213,10 +247,15 @@ def main():
     base_dir = Path(__file__).parent.parent.parent
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    # Default checkpoint based on version
+    if args.checkpoint is None:
+        args.checkpoint = f'checkpoints/{args.version}/best_model.pt'
+
     print("="*70)
-    print("EXPERIMENT 7: Literature Cases & Speed Comparison")
+    print(f"EXPERIMENT 7: Literature Cases & Speed Comparison ({args.version.upper()})")
     print("="*70)
     print(f"Device: {device}")
+    print(f"Version: {args.version}")
 
     # Print literature cases
     print("\n" + "="*70)
@@ -266,11 +305,11 @@ def main():
 
         # Load model
         checkpoint_path = base_dir / args.checkpoint
-        model = load_model(checkpoint_path, device)
+        model = load_model(checkpoint_path, device, version=args.version)
 
         # Time TACTIC
         print("\nTiming TACTIC inference...")
-        tactic_times = time_tactic_inference(model, samples, device)
+        tactic_times = time_tactic_inference(model, samples, device, version=args.version)
 
         # Time Classical (subset - it's slow)
         print("Timing Classical inference (may take a while)...")
@@ -328,7 +367,7 @@ def main():
     if args.save_results:
         results_dir = base_dir / "results" / "experiments"
         results_dir.mkdir(parents=True, exist_ok=True)
-        output_path = results_dir / f"literature_speed_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        output_path = results_dir / f"literature_speed_{args.version}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         output = {
             'literature_cases': LITERATURE_CASES,
             'speed_comparison': {

@@ -25,8 +25,24 @@ Test TACTIC vs Classical AIC on real enzyme kinetic data from 3 sources:
    - Known mechanism: Michaelis-Menten irreversible
    - Source: github.com/EnzymeML/Lauterbach_2022
 
+4. Cephalexin Synthesis (EnzymeML/Lauterbach_2022 Scenario 5)
+   - Enzyme: α-Amino Ester Hydrolase (AEH), EC 3.1.1.43
+   - Organism: Xanthomonas campestris pv. campestris
+   - Reaction: PGME + 7-ADCA → Cephalexin + Phenylglycine (Ping-Pong Bi-Bi)
+   - Data: 8 conditions varying both substrates, 10 timepoints each, 30 min
+   - Known mechanism: Ping-Pong Bi-Bi
+   - Source: Lagerman et al. (2021) Chem. Eng. J. 426:131816
+   - Reference: DOI 10.1016/j.cej.2021.131816
+
+5. Cysteine Desulfurase (EnzymeML/Lauterbach_2022 Scenario 1)
+   - Enzyme: IscS cysteine desulfurase, EC 2.8.1.7
+   - Assay: Sulfide release from L-cysteine
+   - Data: 6 [S] (5-500 µM), 3 timepoints each (sparse)
+   - Known mechanism: Michaelis-Menten irreversible
+   - Source: Pinto et al., interferENZY / Zenodo DOI 10.5281/zenodo.3957403
+
 This validates TACTIC generalization from synthetic training data to
-real experimental measurements.
+real experimental measurements across DIFFERENT mechanism families.
 """
 
 import sys
@@ -242,6 +258,144 @@ def load_abts_laccase_data(base_dir: Path):
     return sample, info
 
 
+def load_cephalexin_data(base_dir: Path):
+    """Load Cephalexin synthesis (AEH) bi-substrate data from Lauterbach_2022 Scenario 5.
+
+    This is a Ping-Pong Bi-Bi mechanism:
+      PGME (A) + 7-ADCA (B) → Cephalexin (P) + Phenylglycine (Q)
+
+    Enzyme: α-Amino Ester Hydrolase (AEH, EC 3.1.1.43) from X. campestris
+    Reference: Lagerman et al. (2021) Chem. Eng. J. 426:131816
+    """
+    data_dir = Path("/tmp/enzymeml_extract/Scenario5_Lagerman/data")
+
+    if not data_dir.exists():
+        omex_path = base_dir / "data" / "real" / "Lauterbach_2022" / "Scenario5" / "LMFit" / "EnzymeML_Lagerman.omex"
+        if not omex_path.exists():
+            # Try other subdirs
+            for subdir in ['COPASI', 'PySCeS']:
+                alt = base_dir / "data" / "real" / "Lauterbach_2022" / "Scenario5" / subdir
+                omex_files = list(alt.glob("*.omex"))
+                if omex_files:
+                    omex_path = omex_files[0]
+                    break
+        if omex_path.exists():
+            import zipfile
+            data_dir.parent.mkdir(parents=True, exist_ok=True)
+            with zipfile.ZipFile(omex_path) as z:
+                z.extractall(data_dir.parent)
+        else:
+            print(f"  Cephalexin data not found")
+            return None
+
+    if not data_dir.exists():
+        print(f"  Cephalexin data directory not found: {data_dir}")
+        return None
+
+    # Ping-pong bi-bi mechanism index
+    ping_pong_idx = MECHANISMS.index('ping_pong')
+
+    sample = MultiConditionSample(
+        mechanism='ping_pong',
+        mechanism_idx=ping_pong_idx,
+        energy_params={},
+    )
+
+    csv_files = sorted(data_dir.glob("m*.csv"), key=lambda p: int(p.stem[1:]))
+
+    for csv_path in csv_files:
+        # Format: time(min), [PGME](mM), [7-ADCA](mM), [Cephalexin](mM), [Phenylglycine](mM)
+        data = np.genfromtxt(csv_path, delimiter=',')
+        t = data[:, 0] * 60.0  # Convert minutes to seconds
+        A = data[:, 1]  # PGME (substrate A) in mM
+        B = data[:, 2]  # 7-ADCA (substrate B) in mM
+        P = data[:, 3]  # Cephalexin (product) in mM
+        # Q = data[:, 4]  # Phenylglycine (byproduct) in mM
+
+        A0 = A[0]  # Initial [A]
+        B0 = B[0]  # Initial [B]
+
+        # For TACTIC: use substrate A as primary, track its consumption
+        # and cephalexin formation as product
+        sample.add_trajectory(
+            conditions={'S0': A0, 'B0': B0, 'E0': 0.2e-3},  # 0.2 µM enzyme from XML
+            t=t,
+            concentrations={'S': A, 'P': P, 'B': B},
+        )
+
+    info = {
+        'name': 'Cephalexin Synthesis (AEH)',
+        'source': 'Lagerman et al. (2021) / EnzymeML Scenario 5',
+        'enzyme': 'α-Amino Ester Hydrolase (X. campestris)',
+        'ec': 'EC 3.1.1.43',
+        'expected': 'ping_pong',
+        'n_traces': sample.n_conditions,
+        'description': f'8 bi-substrate conditions ([A]×[B]), {sample.n_conditions} traces, 30 min',
+    }
+    return sample, info
+
+
+def load_cysteine_desulfurase_data(base_dir: Path):
+    """Load Cysteine desulfurase (IscS) data from Lauterbach_2022 Scenario 1.
+
+    Enzyme: IscS cysteine desulfurase, EC 2.8.1.7
+    Assay: L-cysteine → L-alanine + sulfide (measured as sulfide release)
+    Data: 6 substrate concentrations, 3 timepoints each (sparse)
+    Source: Pinto et al. / interferENZY / Zenodo DOI 10.5281/zenodo.3957403
+    """
+    data_dir = Path("/tmp/enzymeml_extract/Scenario1_Desulfuration_Cysteine_Pinto/data")
+
+    if not data_dir.exists():
+        omex_dir = base_dir / "data" / "real" / "Lauterbach_2022" / "Scenario1"
+        omex_files = list(omex_dir.rglob("*.omex"))
+        if omex_files:
+            import zipfile
+            data_dir.parent.mkdir(parents=True, exist_ok=True)
+            with zipfile.ZipFile(omex_files[0]) as z:
+                z.extractall(data_dir.parent)
+        else:
+            print(f"  Cysteine desulfurase data not found")
+            return None
+
+    if not data_dir.exists():
+        print(f"  Cysteine desulfurase data directory not found: {data_dir}")
+        return None
+
+    sample = MultiConditionSample(
+        mechanism='michaelis_menten_irreversible',
+        mechanism_idx=0,
+        energy_params={},
+    )
+
+    csv_files = sorted(data_dir.glob("m*.csv"), key=lambda p: int(p.stem[1:]))
+
+    for csv_path in csv_files:
+        # Format: time(min), [Substrate](µM), [Product](µM)
+        data = np.genfromtxt(csv_path, delimiter=',')
+        t = data[:, 0] * 60.0  # Convert minutes to seconds
+        S = data[:, 1] / 1000.0  # Convert µM to mM
+        P = data[:, 2] / 1000.0  # Convert µM to mM
+
+        S0 = S[0]  # Initial substrate in mM
+
+        sample.add_trajectory(
+            conditions={'S0': S0, 'E0': 1e-3},
+            t=t,
+            concentrations={'S': S, 'P': P},
+        )
+
+    info = {
+        'name': 'Cysteine Desulfurase (IscS)',
+        'source': 'Pinto et al. / EnzymeML Scenario 1',
+        'enzyme': 'IscS cysteine desulfurase',
+        'ec': 'EC 2.8.1.7',
+        'expected': 'michaelis_menten_irreversible',
+        'n_traces': sample.n_conditions,
+        'description': f'6 [S] (5-500 µM), {sample.n_conditions} traces, 3 timepoints (sparse)',
+    }
+    return sample, info
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # CONVERSION: MultiConditionSample → TACTIC model input tensors
 # ═══════════════════════════════════════════════════════════════════════
@@ -280,7 +434,8 @@ def sample_to_tactic_input(sample: MultiConditionSample, device: torch.device,
         cond = np.zeros(8)
         cond[0] = np.log10(max(S0, 1e-9))
         cond[1] = -9.0  # No inhibitor
-        cond[2] = -9.0  # No second substrate
+        B0 = conds.get('B0', 0)
+        cond[2] = np.log10(max(B0, 1e-9)) if B0 > 0 else -9.0  # Second substrate
         cond[3] = -9.0  # No initial product
         cond[4] = np.log10(max(conds.get('E0', 1e-3), 1e-12))
         T = conds.get('T', 298.15)
@@ -555,6 +710,20 @@ def main():
         datasets.append(result)
         print(f"   Loaded: {result[1]['n_traces']} traces")
 
+    # 4. Cephalexin Synthesis (Lauterbach_2022 Scenario 5) — BI-SUBSTRATE
+    print("4. Loading Cephalexin Synthesis (AEH, Ping-Pong Bi-Bi)...")
+    result = load_cephalexin_data(base_dir)
+    if result:
+        datasets.append(result)
+        print(f"   Loaded: {result[1]['n_traces']} traces")
+
+    # 5. Cysteine Desulfurase (Lauterbach_2022 Scenario 1) — SPARSE
+    print("5. Loading Cysteine Desulfurase (IscS, sparse)...")
+    result = load_cysteine_desulfurase_data(base_dir)
+    if result:
+        datasets.append(result)
+        print(f"   Loaded: {result[1]['n_traces']} traces")
+
     print(f"\nTotal datasets loaded: {len(datasets)}")
 
     # ── Evaluate each dataset ───────────────────────────────────────────
@@ -578,9 +747,22 @@ def main():
     tactic_correct_total = 0
     classical_correct_total = 0
 
+    MECHANISM_SHORT = {
+        'michaelis_menten_irreversible': 'MM irrev',
+        'michaelis_menten_reversible': 'MM rev',
+        'competitive_inhibition': 'Comp inh',
+        'uncompetitive_inhibition': 'Uncomp inh',
+        'mixed_inhibition': 'Mixed inh',
+        'substrate_inhibition': 'Sub inh',
+        'ordered_bi_bi': 'Ord BiBI',
+        'random_bi_bi': 'Rand BiBI',
+        'ping_pong': 'Ping-Pong',
+        'product_inhibition': 'Prod inh',
+    }
+
     for r in all_results:
         name = r['info']['name'][:29]
-        expected = 'MM irrev'
+        expected = MECHANISM_SHORT.get(r['info']['expected'], r['info']['expected'][:15])
         tactic_str = f"{'OK' if r['tactic']['correct'] else 'WRONG'} ({r['tactic']['confidence']*100:.0f}%)"
         classical_str = 'OK' if r['classical']['correct'] else 'WRONG'
         speed_str = f"{r['speedup']:.0f}x"

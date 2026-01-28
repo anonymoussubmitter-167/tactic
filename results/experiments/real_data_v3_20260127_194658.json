@@ -1,0 +1,169 @@
+{
+  "version": "v3",
+  "n_datasets": 5,
+  "datasets": [
+    {
+      "name": "SLAC Laccase",
+      "enzyme": "Small laccase (S. coelicolor)",
+      "source": "EnzymeML/DaRUS DOI:10.18419/darus-2096",
+      "expected": "michaelis_menten_irreversible",
+      "n_traces": 50,
+      "tactic": {
+        "predicted": "michaelis_menten_irreversible",
+        "confidence": 0.9766407608985901,
+        "correct": true,
+        "elapsed_ms": 2481.344446539879,
+        "all_probs": {
+          "michaelis_menten_irreversible": 0.9766407608985901,
+          "michaelis_menten_reversible": 0.00637466786429286,
+          "competitive_inhibition": 0.0004104372637812048,
+          "uncompetitive_inhibition": 0.0007601904799230397,
+          "mixed_inhibition": 0.0005299625918269157,
+          "substrate_inhibition": 0.01262461207807064,
+          "ordered_bi_bi": 0.0009410475613549352,
+          "random_bi_bi": 0.0013134187320247293,
+          "ping_pong": 0.0003892921085935086,
+          "product_inhibition": 1.559999873279594e-05
+        }
+      },
+      "classical": {
+        "predicted": "substrate_inhibition",
+        "correct": false,
+        "elapsed_s": 10.449055947363377
+      },
+      "speedup": 4.211046137481681
+    },
+    {
+      "name": "ICEKAT SIRT1",
+      "enzyme": "SIRT1 deacetylase",
+      "source": "github.com/SmithLabMCW/icekat",
+      "expected": "michaelis_menten_irreversible",
+      "n_traces": 8,
+      "tactic": {
+        "predicted": "michaelis_menten_irreversible",
+        "confidence": 0.9618444442749023,
+        "correct": true,
+        "elapsed_ms": 28.519317507743835,
+        "all_probs": {
+          "michaelis_menten_irreversible": 0.9618444442749023,
+          "michaelis_menten_reversible": 0.011677046306431293,
+          "competitive_inhibition": 0.0005753798759542406,
+          "uncompetitive_inhibition": 0.0006999709294177592,
+          "mixed_inhibition": 0.001338060712441802,
+          "substrate_inhibition": 0.019059181213378906,
+          "ordered_bi_bi": 0.0015268815914168954,
+          "random_bi_bi": 0.002361780032515526,
+          "ping_pong": 0.000892889394890517,
+          "product_inhibition": 2.4321461751242168e-05
+        }
+      },
+      "classical": {
+        "predicted": "michaelis_menten_irreversible",
+        "correct": true,
+        "elapsed_s": 1.4758901968598366
+      },
+      "speedup": 51.75054404647267
+    },
+    {
+      "name": "ABTS Laccase (T. pubescens)",
+      "enzyme": "Laccase 2 (Trametes pubescens)",
+      "source": "EnzymeML/Lauterbach_2022 Scenario 4",
+      "expected": "michaelis_menten_irreversible",
+      "n_traces": 9,
+      "tactic": {
+        "predicted": "michaelis_menten_irreversible",
+        "confidence": 0.964754045009613,
+        "correct": true,
+        "elapsed_ms": 22.84180372953415,
+        "all_probs": {
+          "michaelis_menten_irreversible": 0.964754045009613,
+          "michaelis_menten_reversible": 0.007688821759074926,
+          "competitive_inhibition": 0.0004791816754732281,
+          "uncompetitive_inhibition": 0.0009150599362328649,
+          "mixed_inhibition": 0.0012509652879089117,
+          "substrate_inhibition": 0.020119592547416687,
+          "ordered_bi_bi": 0.0014024623669683933,
+          "random_bi_bi": 0.0023059933446347713,
+          "ping_pong": 0.0010602112160995603,
+          "product_inhibition": 2.3577465981361456e-05
+        }
+      },
+      "classical": {
+        "predicted": "michaelis_menten_reversible",
+        "correct": false,
+        "elapsed_s": 7.5087374076247215
+      },
+      "speedup": 328.7278665264085
+    },
+    {
+      "name": "Cephalexin Synthesis (AEH)",
+      "enzyme": "\u03b1-Amino Ester Hydrolase (X. campestris)",
+      "source": "Lagerman et al. (2021) / EnzymeML Scenario 5",
+      "expected": "ping_pong",
+      "n_traces": 8,
+      "tactic": {
+        "predicted": "random_bi_bi",
+        "confidence": 0.40032920241355896,
+        "correct": false,
+        "elapsed_ms": 31.485125422477722,
+        "all_probs": {
+          "michaelis_menten_irreversible": 8.957426871347707e-06,
+          "michaelis_menten_reversible": 0.00024812750052660704,
+          "competitive_inhibition": 0.00020627675985451788,
+          "uncompetitive_inhibition": 0.00021103704057168216,
+          "mixed_inhibition": 0.00040666971472091973,
+          "substrate_inhibition": 8.021238318178803e-05,
+          "ordered_bi_bi": 0.28310543298721313,
+          "random_bi_bi": 0.40032920241355896,
+          "ping_pong": 0.31537455320358276,
+          "product_inhibition": 2.9532018743338995e-05
+        }
+      },
+      "classical": {
+        "predicted": "substrate_inhibition",
+        "correct": false,
+        "elapsed_s": 21.261265411973
+      },
+      "speedup": 675.2796797434464
+    },
+    {
+      "name": "Cysteine Desulfurase (IscS)",
+      "enzyme": "IscS cysteine desulfurase",
+      "source": "Pinto et al. / EnzymeML Scenario 1",
+      "expected": "michaelis_menten_irreversible",
+      "n_traces": 6,
+      "tactic": {
+        "predicted": "michaelis_menten_irreversible",
+        "confidence": 0.9647599458694458,
+        "correct": true,
+        "elapsed_ms": 28.82174402475357,
+        "all_probs": {
+          "michaelis_menten_irreversible": 0.9647599458694458,
+          "michaelis_menten_reversible": 0.005427002441138029,
+          "competitive_inhibition": 0.0005694561987183988,
+          "uncompetitive_inhibition": 0.0009470638469792902,
+          "mixed_inhibition": 0.0015113195404410362,
+          "substrate_inhibition": 0.02048345096409321,
+          "ordered_bi_bi": 0.0016312658553943038,
+          "random_bi_bi": 0.003149510594084859,
+          "ping_pong": 0.0015025116736069322,
+          "product_inhibition": 1.8494527466828004e-05
+        }
+      },
+      "classical": {
+        "predicted": "michaelis_menten_reversible",
+        "correct": false,
+        "elapsed_s": 0.8056546449661255
+      },
+      "speedup": 27.953015066478578
+    }
+  ],
+  "summary": {
+    "tactic_correct": 4,
+    "classical_correct": 1,
+    "total": 5,
+    "tactic_avg_ms": 518.6024874448776,
+    "classical_avg_s": 8.300120721757413,
+    "overall_speedup": 16.00478386181986
+  }
+}

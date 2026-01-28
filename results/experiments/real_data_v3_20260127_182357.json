@@ -1,0 +1,107 @@
+{
+  "version": "v3",
+  "n_datasets": 3,
+  "datasets": [
+    {
+      "name": "SLAC Laccase",
+      "enzyme": "Small laccase (S. coelicolor)",
+      "source": "EnzymeML/DaRUS DOI:10.18419/darus-2096",
+      "expected": "michaelis_menten_irreversible",
+      "n_traces": 50,
+      "tactic": {
+        "predicted": "michaelis_menten_irreversible",
+        "confidence": 0.9766407608985901,
+        "correct": true,
+        "elapsed_ms": 2508.591875433922,
+        "all_probs": {
+          "michaelis_menten_irreversible": 0.9766407608985901,
+          "michaelis_menten_reversible": 0.00637466786429286,
+          "competitive_inhibition": 0.0004104372637812048,
+          "uncompetitive_inhibition": 0.0007601904799230397,
+          "mixed_inhibition": 0.0005299625918269157,
+          "substrate_inhibition": 0.01262461207807064,
+          "ordered_bi_bi": 0.0009410475613549352,
+          "random_bi_bi": 0.0013134187320247293,
+          "ping_pong": 0.0003892921085935086,
+          "product_inhibition": 1.559999873279594e-05
+        }
+      },
+      "classical": {
+        "predicted": "substrate_inhibition",
+        "correct": false,
+        "elapsed_s": 7.691279917955399
+      },
+      "speedup": 3.0659749771472913
+    },
+    {
+      "name": "ICEKAT SIRT1",
+      "enzyme": "SIRT1 deacetylase",
+      "source": "github.com/SmithLabMCW/icekat",
+      "expected": "michaelis_menten_irreversible",
+      "n_traces": 8,
+      "tactic": {
+        "predicted": "michaelis_menten_irreversible",
+        "confidence": 0.9618444442749023,
+        "correct": true,
+        "elapsed_ms": 21.19244635105133,
+        "all_probs": {
+          "michaelis_menten_irreversible": 0.9618444442749023,
+          "michaelis_menten_reversible": 0.011677046306431293,
+          "competitive_inhibition": 0.0005753798759542406,
+          "uncompetitive_inhibition": 0.0006999709294177592,
+          "mixed_inhibition": 0.001338060712441802,
+          "substrate_inhibition": 0.019059181213378906,
+          "ordered_bi_bi": 0.0015268815914168954,
+          "random_bi_bi": 0.002361780032515526,
+          "ping_pong": 0.000892889394890517,
+          "product_inhibition": 2.4321461751242168e-05
+        }
+      },
+      "classical": {
+        "predicted": "michaelis_menten_irreversible",
+        "correct": true,
+        "elapsed_s": 1.5548521056771278
+      },
+      "speedup": 73.3682218617481
+    },
+    {
+      "name": "ABTS Laccase (T. pubescens)",
+      "enzyme": "Laccase 2 (Trametes pubescens)",
+      "source": "EnzymeML/Lauterbach_2022 Scenario 4",
+      "expected": "michaelis_menten_irreversible",
+      "n_traces": 9,
+      "tactic": {
+        "predicted": "michaelis_menten_irreversible",
+        "confidence": 0.964754045009613,
+        "correct": true,
+        "elapsed_ms": 17.389804124832153,
+        "all_probs": {
+          "michaelis_menten_irreversible": 0.964754045009613,
+          "michaelis_menten_reversible": 0.007688821759074926,
+          "competitive_inhibition": 0.0004791816754732281,
+          "uncompetitive_inhibition": 0.0009150599362328649,
+          "mixed_inhibition": 0.0012509652879089117,
+          "substrate_inhibition": 0.020119592547416687,
+          "ordered_bi_bi": 0.0014024623669683933,
+          "random_bi_bi": 0.0023059933446347713,
+          "ping_pong": 0.0010602112160995603,
+          "product_inhibition": 2.3577465981361456e-05
+        }
+      },
+      "classical": {
+        "predicted": "product_inhibition",
+        "correct": false,
+        "elapsed_s": 6.923574082553387
+      },
+      "speedup": 398.13985441427235
+    }
+  ],
+  "summary": {
+    "tactic_correct": 3,
+    "classical_correct": 1,
+    "total": 3,
+    "tactic_avg_ms": 849.0580419699351,
+    "classical_avg_s": 5.389902035395305,
+    "overall_speedup": 6.348096088802089
+  }
+}

@@ -24,6 +24,7 @@ from tactic_kinetics.training.multi_condition_generator import (
 from tactic_kinetics.training.multi_condition_dataset import (
     MultiConditionDataset,
     MultiConditionDatasetConfig,
+    V1Dataset,
 )
 from tactic_kinetics.models.multi_condition_classifier import (
     create_multi_task_model,
@@ -88,14 +89,6 @@ def load_model(checkpoint_path: Path, device: torch.device, version: str = 'v3')
 def evaluate_with_n_conditions(model, samples: list, n_conditions: int, device: torch.device, version: str = 'v3') -> float:
     """Evaluate TACTIC using only first n_conditions from each sample."""
 
-    # Create dataset config for specific number of conditions
-    dataset_config = MultiConditionDatasetConfig(
-        max_conditions=n_conditions,
-        n_timepoints=20,
-        n_trajectory_features=5,
-        n_derived_features=8,
-    )
-
     # Subsample trajectories from each sample
     subsampled = []
     for sample in samples:
@@ -109,7 +102,17 @@ def evaluate_with_n_conditions(model, samples: list, n_conditions: int, device: 
         sub.energy_params = getattr(sample, 'energy_params', {})
         subsampled.append(sub)
 
-    dataset = MultiConditionDataset(subsampled, dataset_config)
+    if version == 'v1':
+        dataset = V1Dataset(subsampled, max_conditions=n_conditions)
+    else:
+        # Create dataset config for specific number of conditions
+        dataset_config = MultiConditionDatasetConfig(
+            max_conditions=n_conditions,
+            n_timepoints=20,
+            n_trajectory_features=5,
+            n_derived_features=8,
+        )
+        dataset = MultiConditionDataset(subsampled, dataset_config)
 
     correct = 0
     total = 0
@@ -122,10 +125,8 @@ def evaluate_with_n_conditions(model, samples: list, n_conditions: int, device: 
         condition_mask = batch['condition_mask'].unsqueeze(0).to(device)
 
         if version == 'v1':
-            # v1 uses only 2 trajectory features (S, P) and 6 condition features
-            trajectories_v1 = trajectories[:, :, :, 1:3]
-            conditions_v1 = conditions[:, :, :6]
-            output = model(trajectories_v1, conditions_v1, condition_mask=condition_mask)
+            # V1Dataset already provides correct format: (n, 20, 2) trajectories and (n, 6) conditions
+            output = model(trajectories, conditions, condition_mask=condition_mask)
         else:
             derived_features = batch['derived_features'].unsqueeze(0).to(device)
             output = model(
@@ -210,7 +211,10 @@ def main():
     print(f"Loaded model from: {checkpoint_path}")
 
     # Ablation conditions
-    n_conditions_list = [1, 2, 3, 5, 7, 10, 15, 20]
+    if args.version == 'v1':
+        n_conditions_list = [1, 2, 3, 5]
+    else:
+        n_conditions_list = [1, 2, 3, 5, 7, 10, 15, 20]
     results = []
 
     print("\n" + "="*70)

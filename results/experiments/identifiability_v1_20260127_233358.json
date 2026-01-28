@@ -1,0 +1,228 @@
+{
+  "version": "v1",
+  "confusion_matrix": [
+    [
+      0,
+      100,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      100,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      71,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      29
+    ],
+    [
+      0,
+      75,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      25
+    ],
+    [
+      0,
+      64,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      36
+    ],
+    [
+      0,
+      99,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      0,
+      100,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      100,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      100,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      100,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  ],
+  "pairwise_confusion": {
+    "('michaelis_menten_irreversible', 'michaelis_menten_reversible')": {
+      "symmetric_rate": 0.5,
+      "michaelis_menten_irreversible_to_michaelis_menten_reversible": 1.0,
+      "michaelis_menten_reversible_to_michaelis_menten_irreversible": 0.0
+    },
+    "('competitive_inhibition', 'michaelis_menten_reversible')": {
+      "symmetric_rate": 0.355,
+      "michaelis_menten_reversible_to_competitive_inhibition": 0.0,
+      "competitive_inhibition_to_michaelis_menten_reversible": 0.71
+    },
+    "('michaelis_menten_reversible', 'uncompetitive_inhibition')": {
+      "symmetric_rate": 0.375,
+      "michaelis_menten_reversible_to_uncompetitive_inhibition": 0.0,
+      "uncompetitive_inhibition_to_michaelis_menten_reversible": 0.75
+    },
+    "('michaelis_menten_reversible', 'mixed_inhibition')": {
+      "symmetric_rate": 0.32,
+      "michaelis_menten_reversible_to_mixed_inhibition": 0.0,
+      "mixed_inhibition_to_michaelis_menten_reversible": 0.64
+    },
+    "('michaelis_menten_reversible', 'substrate_inhibition')": {
+      "symmetric_rate": 0.495,
+      "michaelis_menten_reversible_to_substrate_inhibition": 0.0,
+      "substrate_inhibition_to_michaelis_menten_reversible": 0.99
+    },
+    "('michaelis_menten_reversible', 'ordered_bi_bi')": {
+      "symmetric_rate": 0.5,
+      "michaelis_menten_reversible_to_ordered_bi_bi": 0.0,
+      "ordered_bi_bi_to_michaelis_menten_reversible": 1.0
+    },
+    "('michaelis_menten_reversible', 'random_bi_bi')": {
+      "symmetric_rate": 0.5,
+      "michaelis_menten_reversible_to_random_bi_bi": 0.0,
+      "random_bi_bi_to_michaelis_menten_reversible": 1.0
+    },
+    "('michaelis_menten_reversible', 'ping_pong')": {
+      "symmetric_rate": 0.5,
+      "michaelis_menten_reversible_to_ping_pong": 0.0,
+      "ping_pong_to_michaelis_menten_reversible": 1.0
+    },
+    "('michaelis_menten_reversible', 'product_inhibition')": {
+      "symmetric_rate": 0.5,
+      "michaelis_menten_reversible_to_product_inhibition": 0.0,
+      "product_inhibition_to_michaelis_menten_reversible": 1.0
+    },
+    "('competitive_inhibition', 'product_inhibition')": {
+      "symmetric_rate": 0.145,
+      "competitive_inhibition_to_product_inhibition": 0.29,
+      "product_inhibition_to_competitive_inhibition": 0.0
+    },
+    "('product_inhibition', 'uncompetitive_inhibition')": {
+      "symmetric_rate": 0.125,
+      "uncompetitive_inhibition_to_product_inhibition": 0.25,
+      "product_inhibition_to_uncompetitive_inhibition": 0.0
+    },
+    "('mixed_inhibition', 'product_inhibition')": {
+      "symmetric_rate": 0.18,
+      "mixed_inhibition_to_product_inhibition": 0.36,
+      "product_inhibition_to_mixed_inhibition": 0.0
+    }
+  },
+  "theoretical_groups": {
+    "inhibition_types": {
+      "mechanisms": [
+        "competitive_inhibition",
+        "uncompetitive_inhibition",
+        "mixed_inhibition"
+      ],
+      "reason": "All show inhibitor effects, differ in Lineweaver-Burk patterns",
+      "distinguishable_with": "Varying [I] at multiple [S] levels"
+    },
+    "bisubstrate_patterns": {
+      "mechanisms": [
+        "ordered_bi_bi",
+        "random_bi_bi",
+        "ping_pong"
+      ],
+      "reason": "Similar two-substrate kinetics, differ in initial velocity patterns",
+      "distinguishable_with": "Varying [A] and [B] independently, product inhibition studies"
+    },
+    "reversibility": {
+      "mechanisms": [
+        "michaelis_menten_reversible",
+        "product_inhibition"
+      ],
+      "reason": "Both show product effects, differ in mechanism",
+      "distinguishable_with": "Equilibrium approach experiments, spiking initial product"
+    }
+  },
+  "mechanisms": [
+    "michaelis_menten_irreversible",
+    "michaelis_menten_reversible",
+    "competitive_inhibition",
+    "uncompetitive_inhibition",
+    "mixed_inhibition",
+    "substrate_inhibition",
+    "ordered_bi_bi",
+    "random_bi_bi",
+    "ping_pong",
+    "product_inhibition"
+  ],
+  "n_samples": 1000
+}

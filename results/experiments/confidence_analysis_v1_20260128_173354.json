@@ -1,0 +1,64 @@
+{
+  "bin_results": [
+    {
+      "confidence_low": 0.2,
+      "confidence_high": 0.4,
+      "accuracy": 0.353322528363047,
+      "n_samples": 617
+    },
+    {
+      "confidence_low": 0.4,
+      "confidence_high": 0.6,
+      "accuracy": 0.588477366255144,
+      "n_samples": 243
+    },
+    {
+      "confidence_low": 0.6,
+      "confidence_high": 0.8,
+      "accuracy": 1.0,
+      "n_samples": 7
+    },
+    {
+      "confidence_low": 0.8,
+      "confidence_high": 0.9,
+      "accuracy": 1.0,
+      "n_samples": 2
+    },
+    {
+      "confidence_low": 0.9,
+      "confidence_high": 1.0,
+      "accuracy": 1.0,
+      "n_samples": 131
+    }
+  ],
+  "per_mechanism_confidence": {
+    "michaelis_menten_irreversible": 0.980955704152584,
+    "michaelis_menten_reversible": 0.5099376302957535,
+    "competitive_inhibition": 0.34244014859199523,
+    "uncompetitive_inhibition": 0.3418396177887917,
+    "mixed_inhibition": 0.34025962591171266,
+    "substrate_inhibition": 0.635964692234993,
+    "ordered_bi_bi": 0.34551956117153165,
+    "random_bi_bi": 0.34378829538822175,
+    "ping_pong": 0.3432857048511505,
+    "product_inhibition": 0.5090873056650161
+  },
+  "per_mechanism_accuracy": {
+    "michaelis_menten_irreversible": 0.97,
+    "michaelis_menten_reversible": 0.54,
+    "competitive_inhibition": 0.58,
+    "uncompetitive_inhibition": 0.26,
+    "mixed_inhibition": 0.14,
+    "substrate_inhibition": 0.94,
+    "ordered_bi_bi": 0.16,
+    "random_bi_bi": 0.56,
+    "ping_pong": 0.37,
+    "product_inhibition": 0.49
+  },
+  "mean_confidence": 0.469307828605175,
+  "median_confidence": 0.35132646560668945,
+  "overall_accuracy": 0.501,
+  "ece": 0.03169217139482498,
+  "n_samples": 1000,
+  "version": "v1"
+}

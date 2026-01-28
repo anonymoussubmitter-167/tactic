@@ -10,11 +10,11 @@ TACTIC (Transformer Architecture for Classifying Thermodynamic and Inhibition Ch
 |--------|----------|--------------|
 | Random baseline | 10.0% | - |
 | Classical (AIC) | 38.6% | baseline |
-| **v1** (basic multi-cond) | 10.3% | -28.3% |
+| **v1** (basic multi-cond) | 50.1% | +11.5% |
 | **v2** (improved) | 56.1% | +17.5% |
 | **v3** (multi-task) | **62.0%** | **+23.4%** |
 
-**Note**: v1 results indicate the model collapsed to predicting a single class (MM_reversible), likely due to training issues with the basic architecture. The meaningful comparison is v2/v3 vs classical.
+**Note on v1 evaluation**: v1 uses 5 conditions with different feature format than v2/v3. The initial experiment scripts incorrectly fed v1 data in v2/v3 format, causing apparent collapse to 10% accuracy. This has been fixed with a dedicated `V1Dataset` class that matches the v1 training format. The corrected v1 accuracy of 50.1% is now above classical AIC (38.6%).
 
 ### Real Experimental Data (5 datasets, 5 enzymes, 4 labs, 2 mechanism families)
 
@@ -23,13 +23,13 @@ TACTIC (Transformer Architecture for Classifying Thermodynamic and Inhibition Ch
 | **TACTIC v3** | **4/5** | **80%** | **85.4%** |
 | Classical (AIC) | 0–1/5 | 0–20% | N/A |
 
-TACTIC correctly classifies 4 of 5 real enzyme datasets spanning Michaelis-Menten irreversible and bi-substrate (ping-pong) mechanisms. The one "miss" (Cephalexin/AEH) correctly identified the bi-substrate family with 99.8% combined probability — just confused which bi-substrate sub-type (random_bi_bi vs ping_pong). Classical AIC misclassifies 4–5 of 5 enzymes across 10 runs, and its predictions are non-deterministic (4/5 datasets give different AIC answers across runs; IscS produces 3 different wrong answers). TACTIC is bit-for-bit identical across all 10 runs and 26–1005× faster on GPU. See Experiment 8 for full per-prediction details.
+TACTIC correctly classifies 4 of 5 real enzyme datasets spanning Michaelis-Menten irreversible and bi-substrate (ping-pong) mechanisms. The one "miss" (Cephalexin/AEH) correctly identified the bi-substrate family with 99.8% combined probability — just confused which bi-substrate sub-type (random_bi_bi vs ping_pong). Classical AIC misclassifies 4–5 of 5 enzymes across 10 runs, and its predictions are non-deterministic (4/5 datasets give different AIC answers across runs; IscS produces 3 different wrong answers). TACTIC is deterministic across all 10 runs (bit-for-bit identical on GPU, negligible FP differences on CPU) and 26–1005× faster on GPU. See Experiment 8 for full per-prediction details.
 
 ## Version Progression
 
 | Transition | Gain | Key Innovation |
 |------------|------|----------------|
-| v1 → v2 | +45.8% | Derived features + pairwise comparison + architecture fixes |
+| v1 → v2 | +6.0% | Derived features + pairwise comparison + architecture fixes + more conditions (5→20) |
 | v2 → v3 | +5.9% | Multi-task auxiliary heads |
 
 **Interpretation**: The largest gains come from derived kinetic features (v0, Km estimates, curvature) and improved architecture. Multi-task learning provides additional regularization.
@@ -44,7 +44,7 @@ TACTIC correctly classifies 4 of 5 real enzyme datasets spanning Michaelis-Mente
 
 | Version | Overall Acc | Acc at >90% conf | ECE | Mean Conf |
 |---------|-------------|------------------|-----|-----------|
-| v1 | 10.3% | N/A (no high conf) | 0.41 | 0.51 |
+| v1 | 50.1% | **100%** (131 samples) | 0.032 | 0.47 |
 | v2 | 56.1% | 82.8% | ~0.15 | 0.73 |
 | v3 | 62.0% | **98.0%** | **0.064** | 0.66 |
 
@@ -57,7 +57,7 @@ TACTIC correctly classifies 4 of 5 real enzyme datasets spanning Michaelis-Mente
 | 0.4 - 0.6 | 39.0% | 305 |
 | 0.2 - 0.4 | 29.9% | 144 |
 
-**Key finding**: v3 is well-calibrated (ECE=0.064). When confident (>90%), it's correct 98% of the time. v1 shows no discrimination (all predictions ~51% confidence).
+**Key finding**: v3 is well-calibrated (ECE=0.064). When confident (>90%), it's correct 98% of the time. v1 is also well-calibrated (ECE=0.032) and achieves 100% accuracy at high confidence, though it is confident on fewer samples.
 
 ---
 
@@ -153,10 +153,10 @@ TACTIC correctly classifies 4 of 5 real enzyme datasets spanning Michaelis-Mente
 
 | Metric | v1 | v2 | v3 |
 |--------|-----|-----|-----|
-| TACTIC accuracy | 10.1% | 56.1% | 62.0% |
-| Classical accuracy | 39.4% | 39.4% | 38.8% |
-| Error correlation | 0.21 | **0.07** | 0.21 |
-| Ensemble upper bound | 42.4% | 71.7% | **71.8%** |
+| TACTIC accuracy | 48.0% | 56.1% | 62.0% |
+| Classical accuracy | 27.2% | 39.4% | 38.8% |
+| Error correlation | 0.20 | **0.07** | 0.21 |
+| Ensemble upper bound | 57.6% | 71.7% | **71.8%** |
 
 **v3 Contingency Table:**
 |  | Classical ✓ | Classical ✗ |
@@ -240,9 +240,9 @@ These 5 datasets span:
 
 #### Results Summary
 
-We ran the evaluation **ten times** (nine GPU runs, one CPU run). TACTIC predictions are deterministic (bit-for-bit identical across all 10 runs). Classical AIC predictions **vary between runs** for 4 of 5 datasets, demonstrating a fundamental reliability problem.
+We ran the evaluation **ten times** (nine GPU runs, one CPU run). TACTIC predictions are deterministic — bit-for-bit identical across all 9 GPU runs, and identical predictions (with negligible floating-point differences at the 7th decimal place) on CPU. Classical AIC predictions **vary between runs** for 4 of 5 datasets, demonstrating a fundamental reliability problem.
 
-**TACTIC predictions (identical across all 10 runs):**
+**TACTIC predictions (identical across all 10 runs — same predictions, bit-for-bit identical probabilities across 9 GPU runs, negligible FP differences on CPU):**
 
 | Dataset | TACTIC v3 Prediction | Confidence | Correct? |
 |---------|---------------------|------------|----------|
@@ -280,12 +280,12 @@ Per-dataset AIC stability across 10 runs:
 | IscS | MM_reversible ×6, substrate_inhibition ×2, product_inhibition ×1 | 3 | **Never** (0/9) |
 
 Key observations from 10 runs:
-- **TACTIC probabilities are bit-for-bit identical** across all 10 runs (same predictions, same confidence to 16 decimal places)
+- **TACTIC probabilities are bit-for-bit identical** across all 9 GPU runs; the 1 CPU run has the same predictions with negligible floating-point differences (~7th decimal place, expected from CPU vs GPU arithmetic)
 - **ICEKAT is AIC's only success** — correct in 8/10 runs, but fails 20% of the time (product_inhibition or substrate_inhibition). A method that gives a different answer 1-in-5 times is not scientifically reliable.
 - **4 of 5 datasets are NEVER correctly classified by AIC** across any of the 10 runs
 - **IscS shows 3 different wrong answers** across runs — substrate_inhibition, MM_reversible, and product_inhibition — demonstrating severe optimizer instability
 - **Even SLAC flipped** in Run 10 (MM_reversible instead of the usual substrate_inhibition) — no AIC prediction is truly stable
-- **Cephalexin is the only stable AIC prediction** — consistently wrong (substrate_inhibition) because AIC has no bi-substrate models
+- **Cephalexin is the only stable AIC prediction** — consistently wrong (substrate_inhibition) because a data key mismatch (`S0` vs `A0`) prevented AIC from fitting bi-substrate models (now fixed)
 
 #### Classical AIC Non-Determinism (10 Runs)
 
@@ -295,9 +295,9 @@ Classical AIC predictions changed across 10 runs for **4 of 5 datasets**:
 - **ICEKAT SIRT1**: Correct (MM_irreversible) in 8/10 runs, but **product_inhibition in Run 3** and **substrate_inhibition in Run 7**. Three different answers across 10 runs. The AIC scores for the top 4 models differ by <3 AIC units — the "correct" classification is a coin flip that fails 20% of the time.
 - **ABTS Laccase**: product_inhibition in 3/10 runs, MM_reversible in 7/10 runs. Always wrong, flips between two different wrong answers.
 - **Cysteine Desulfurase (IscS)**: **Three different wrong answers** — MM_reversible (6/9 runs), substrate_inhibition (2/9 runs), product_inhibition (1/9 runs). The most unstable dataset.
-- **Cephalexin (AEH)**: substrate_inhibition in all 9 runs — the only stable prediction, consistently wrong (no bi-substrate models available).
+- **Cephalexin (AEH)**: substrate_inhibition in all 9 runs — the only stable prediction, consistently wrong. A data key mismatch (`S0` vs `A0`) prevented bi-substrate model fitting (now fixed; results above predate the fix).
 
-This non-determinism arises because AIC-based fitting uses local optimization (scipy.optimize) with random initial guesses. When AIC scores are close (ΔAIC < 5), the selected model depends on which local optimum the solver finds. **TACTIC has no such problem** — it is a deterministic forward pass through a neural network. TACTIC produces bit-for-bit identical probabilities across all 10 runs (verified to 16 decimal places).
+This non-determinism arises because AIC-based fitting uses local optimization (scipy.optimize) with random initial guesses. When AIC scores are close (ΔAIC < 5), the selected model depends on which local optimum the solver finds. **TACTIC has no such problem** — it is a deterministic forward pass through a neural network. TACTIC produces bit-for-bit identical probabilities across all 9 GPU runs (the 1 CPU run gives the same predictions with negligible floating-point differences at ~7th decimal place, expected from CPU vs GPU arithmetic).
 
 #### Every Prediction: Full 10-Class Probability Distributions
 
@@ -373,7 +373,7 @@ TACTIC correctly identifies this as a bi-substrate mechanism with near-certainty
 
 The low top-1 confidence (40%) is itself informative: it signals genuine uncertainty about the sub-type, unlike the confident 96%+ predictions on the MM datasets.
 
-AIC ranking: (1) substrate_inhibition AIC=212.1, (2) MM_reversible AIC=296.6, (3) MM_irreversible AIC=323.8. Classical AIC failed catastrophically — it doesn't even have a bi-substrate model to consider, defaulting to substrate_inhibition (the closest single-substrate approximation).
+AIC ranking: (1) substrate_inhibition AIC=212.1, (2) MM_reversible AIC=296.6, (3) MM_irreversible AIC=323.8. Classical AIC failed because a data key mismatch (`S0` vs `A0`) prevented bi-substrate model fitting — the baseline implements ordered_bi_bi, random_bi_bi, and ping_pong but could not detect this data as bi-substrate. **This bug has been fixed** (added `A0` key); results above predate the fix and need re-running.
 
 **Dataset 5: Cysteine Desulfurase (IscS)** — Expected: michaelis_menten_irreversible → TACTIC: **CORRECT (96.5%)**
 
@@ -415,14 +415,14 @@ This mirrors the synthetic result (Experiment 4: 99.6% family accuracy). Even wh
 | SLAC Laccase | substrate_inhibition ×9, MM_reversible ×1 | 50 traces × 5 temps: noise at high [S] mimics substrate inhibition curvature. AIC penalty insufficient for 3 vs 2 params. Even this "stable" wrong answer flipped in Run 10. |
 | ICEKAT SIRT1 | **MM_irreversible ×8**, product_inhibition ×1, substrate_inhibition ×1 | ΔAIC < 3 between top 4 models — essentially a coin flip. Correct 80% of the time, but 3 different answers across 10 runs. A 20% failure rate is not scientifically reliable. |
 | ABTS Laccase | MM_reversible ×7, product_inhibition ×3 | Substrate depletion curves show slowing that AIC interprets as reversibility or product inhibition. Never correct, flips between two wrong answers. |
-| Cephalexin (AEH) | substrate_inhibition ×9 | Classical baseline has no bi-substrate models. Forced to pick nearest single-substrate model. The only stable AIC prediction — consistently wrong. |
+| Cephalexin (AEH) | substrate_inhibition ×9 | A data key mismatch (`S0` vs `A0`) prevented classical baseline from fitting its bi-substrate models (ordered_bi_bi, random_bi_bi, ping_pong). Bug now fixed; results predate the fix and need re-running. |
 | Cysteine Desulfurase | MM_reversible ×6, substrate_inhibition ×2, product_inhibition ×1 | With only 3 timepoints and 6 [S], optimizer instability is maximal. **Three different wrong answers** across 9 runs — the most unstable dataset. |
 
 **Pattern**: AIC fails by overfitting to noise (3/5), lacking model coverage (1/5), and non-deterministic optimization (4/5 datasets give different answers across 10 runs). TACTIC succeeds because:
 1. It learns multi-condition *patterns* rather than fitting individual curves
 2. It was exposed to diverse noise during training
 3. Its bi-substrate models naturally handle two-substrate variation
-4. **It is deterministic** — the same input always produces the same output (verified across 10 runs to 16 decimal places)
+4. **It is deterministic** — the same input always produces the same output (bit-for-bit identical across 9 GPU runs; negligible FP differences on CPU)
 
 #### Speed Comparison
 
@@ -470,7 +470,7 @@ This experiment demonstrates that:
 
 1. **TACTIC generalizes from synthetic to real data** — trained entirely on ODE-simulated kinetics, it correctly classifies real plate reader absorbance data, fluorescence kinetic traces, substrate depletion curves, and bi-substrate concentration tracking
 2. **TACTIC outperforms classical methods on real data** — 80% vs 0–20% on five independent datasets (4/5 vs 0–1/5 across runs)
-3. **TACTIC is deterministic; AIC is not** — identical predictions across all 10 evaluation runs (9 GPU, 1 CPU). Classical AIC predictions changed for 4/5 datasets (up to 3 different wrong answers per dataset) due to local optimization sensitivity.
+3. **TACTIC is deterministic; AIC is not** — identical predictions across all 10 runs (bit-for-bit identical on 9 GPU runs; negligible FP differences on CPU). Classical AIC predictions changed for 4/5 datasets (up to 3 different wrong answers per dataset) due to local optimization sensitivity.
 4. **Family-level accuracy is 100% on real data** — all 5 datasets correctly classified at the mechanism family level, including the Cephalexin bi-substrate (99.8% bi-substrate probability)
 5. **High confidence correlates with correctness** — 96%+ confidence on correct predictions, 40% on the one miss (signaling genuine uncertainty)
 6. **Robust to sparse data** — correctly classifies IscS with only 3 timepoints per trace (96.5% confidence)
@@ -508,7 +508,7 @@ This experiment demonstrates that:
 
 13. **Bi-substrate mechanism detection works** — Cephalexin/AEH data with two varied substrates correctly recognized as bi-substrate (99.8%), demonstrating the model handles two-substrate experimental designs
 
-14. **TACTIC is deterministic, AIC is not** — TACTIC gives bit-for-bit identical predictions across all 10 evaluation runs (9 GPU, 1 CPU). Classical AIC predictions changed for 4/5 datasets, with up to 3 different wrong answers per dataset. Reproducibility is essential for scientific use.
+14. **TACTIC is deterministic, AIC is not** — TACTIC gives bit-for-bit identical predictions across all 9 GPU runs (CPU run gives same predictions with negligible FP differences). Classical AIC predictions changed for 4/5 datasets, with up to 3 different wrong answers per dataset. Reproducibility is essential for scientific use.
 
 15. **Confusion patterns match biochemical theory** — validates learned representations
 

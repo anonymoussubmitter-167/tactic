@@ -515,6 +515,107 @@ def create_multi_condition_dataloaders(
     return train_loader, val_loader
 
 
+class V1Dataset(Dataset):
+    """
+    Dataset for V1 model (basic multi-condition classifier).
+
+    V1 uses:
+    - 5 conditions max
+    - 2 trajectory features: [t_norm, S_norm]
+    - 6 condition features: [log(S0), log(I0), log(E0), T_norm, pH_norm, log(P0)]
+
+    This matches the format used in compare_all_versions.py::evaluate_v1().
+    """
+
+    def __init__(
+        self,
+        samples: List[MultiConditionSample],
+        max_conditions: int = 5,
+        n_timepoints: int = 20,
+    ):
+        self.samples = samples
+        self.max_conditions = max_conditions
+        self.n_timepoints = n_timepoints
+
+        # Compute normalization stats across all samples
+        all_conc, all_times = [], []
+        for sample in samples:
+            for traj in sample.trajectories[:max_conditions]:
+                all_times.extend(traj['t'].tolist())
+                for conc in traj['concentrations'].values():
+                    all_conc.extend(conc.tolist())
+        self.conc_mean = np.mean(all_conc)
+        self.conc_std = np.std(all_conc) + 1e-8
+        self.time_max = np.max(all_times) + 1e-8
+
+        print(f"V1Dataset stats: conc_mean={self.conc_mean:.4f}, conc_std={self.conc_std:.4f}, time_max={self.time_max:.2f}")
+
+    def __len__(self) -> int:
+        return len(self.samples)
+
+    def __getitem__(self, idx: int) -> Dict[str, Tensor]:
+        sample = self.samples[idx]
+
+        trajectories = []
+        conditions_list = []
+
+        for traj_data in sample.trajectories[:self.max_conditions]:
+            concentrations = traj_data['concentrations']
+            t = traj_data['t']
+            conditions = traj_data['conditions']
+
+            # Get substrate (S or A)
+            if 'S' in concentrations:
+                S = concentrations['S']
+            elif 'A' in concentrations:
+                S = concentrations['A']
+            else:
+                S = list(concentrations.values())[0]
+
+            # Interpolate to fixed timepoints if needed
+            if len(t) != self.n_timepoints:
+                t_new = np.linspace(t[0], t[-1], self.n_timepoints)
+                S = np.interp(t_new, t, S)
+                t = t_new
+
+            # Normalize trajectory
+            t_norm = t / self.time_max
+            S_norm = (S - self.conc_mean) / self.conc_std
+            traj_features = np.stack([t_norm, S_norm], axis=-1)
+            trajectories.append(traj_features)
+
+            # V1 condition features: [log(S0), log(I0), log(E0), T_norm, pH_norm, log(P0)]
+            cond_features = np.zeros(6)
+            S0 = conditions.get('S0', conditions.get('A0', 1.0))
+            cond_features[0] = np.log10(max(S0, 1e-9))
+            I0 = conditions.get('I0', conditions.get('B0', 0))
+            cond_features[1] = np.log10(max(I0, 1e-9)) if I0 > 0 else -9.0
+            cond_features[2] = np.log10(max(conditions.get('E0', 1e-3), 1e-12))
+            cond_features[3] = (conditions.get('T', 298.15) - 298.15) / 20.0
+            cond_features[4] = (conditions.get('pH', 7.0) - 7.0) / 2.0
+            P0 = conditions.get('P0', 0)
+            cond_features[5] = np.log10(max(P0, 1e-9)) if P0 > 0 else -9.0
+            conditions_list.append(cond_features)
+
+        # Pad to max_conditions
+        n_actual = len(trajectories)
+        n_pad = self.max_conditions - n_actual
+        if n_pad > 0:
+            for _ in range(n_pad):
+                trajectories.append(np.zeros((self.n_timepoints, 2)))
+                conditions_list.append(np.zeros(6))
+
+        condition_mask = np.array([False] * n_actual + [True] * n_pad)
+
+        return {
+            'trajectories': torch.tensor(np.stack(trajectories), dtype=torch.float32),
+            'conditions': torch.tensor(np.stack(conditions_list), dtype=torch.float32),
+            'condition_mask': torch.tensor(condition_mask, dtype=torch.bool),
+            'mechanism_idx': torch.tensor(sample.mechanism_idx, dtype=torch.long),
+            'n_conditions': n_actual,
+        }
+
+
 def generate_multi_condition_dataset(
     n_samples_per_mechanism: int = 1000,
     val_fraction: float = 0.2,

@@ -318,7 +318,7 @@ def load_cephalexin_data(base_dir: Path):
         # For TACTIC: use substrate A as primary, track its consumption
         # and cephalexin formation as product
         sample.add_trajectory(
-            conditions={'S0': A0, 'B0': B0, 'E0': 0.2e-3},  # 0.2 µM enzyme from XML
+            conditions={'S0': A0, 'A0': A0, 'B0': B0, 'E0': 0.2e-3},  # A0 for classical bi-substrate detection, S0 for TACTIC features
             t=t,
             concentrations={'S': A, 'P': P, 'B': B},
         )

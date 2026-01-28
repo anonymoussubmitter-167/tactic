@@ -21,7 +21,7 @@ from tactic_kinetics.training.multi_condition_generator import (
     MultiConditionConfig,
     load_dataset,
 )
-from tactic_kinetics.training.multi_condition_dataset import MultiConditionDataset
+from tactic_kinetics.training.multi_condition_dataset import MultiConditionDataset, MultiConditionDatasetConfig, V1Dataset
 from tactic_kinetics.models.multi_condition_classifier import (
     create_multi_task_model,
     create_multi_condition_model,
@@ -75,7 +75,10 @@ def load_model(checkpoint_path: Path, device: torch.device, version: str = 'v3')
 @torch.no_grad()
 def analyze_confidence(model, samples: list, device: torch.device, version: str = 'v3') -> dict:
     """Analyze confidence vs accuracy relationship."""
-    dataset = MultiConditionDataset(samples)
+    if version == 'v1':
+        dataset = V1Dataset(samples)
+    else:
+        dataset = MultiConditionDataset(samples)
 
     all_confidences = []
     all_correct = []
@@ -91,10 +94,8 @@ def analyze_confidence(model, samples: list, device: torch.device, version: str 
         condition_mask = batch['condition_mask'].unsqueeze(0).to(device)
 
         if version == 'v1':
-            # v1 uses only 2 trajectory features (S, P) and 6 condition features
-            trajectories_v1 = trajectories[:, :, :, 1:3]
-            conditions_v1 = conditions[:, :, :6]
-            output = model(trajectories_v1, conditions_v1, condition_mask=condition_mask)
+            # V1Dataset already provides correct format: (5, 20, 2) trajectories and (5, 6) conditions
+            output = model(trajectories, conditions, condition_mask=condition_mask)
         else:
             derived_features = batch['derived_features'].unsqueeze(0).to(device)
             output = model(
@@ -222,7 +223,8 @@ def main():
         samples, _ = load_dataset(args.test_set)
     else:
         print(f"Generating test set ({args.n_samples} per mechanism)...")
-        config = MultiConditionConfig(n_conditions_per_sample=20)
+        n_cond = 5 if args.version == 'v1' else 20
+        config = MultiConditionConfig(n_conditions_per_sample=n_cond)
         generator = MultiConditionGenerator(config, seed=12345)
         samples = generator.generate_batch(args.n_samples, n_workers=4)
 

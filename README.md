@@ -1,6 +1,6 @@
-# TACTIC: Transformer Architecture for Classifying Thermodynamic and Inhibition Characteristics
+# TACTIC: Thermodynamically-Native Active Transfer Inference for Multi-Condition Enzyme Kinetics
 
-TACTIC is a deep learning framework for classifying enzyme kinetic mechanisms from time-course experimental data. Given multi-condition kinetic trajectories, TACTIC identifies the underlying reaction mechanism from 10 canonical enzyme mechanisms spanning 5 mechanistic families.
+TACTIC is a deep learning framework for classifying enzyme kinetic mechanisms directly from multi-condition kinetic data. Our key insight is that mechanism discrimination requires comparing how kinetics change across experimental conditions—single kinetic curves are fundamentally insufficient.
 
 ## Key Results
 
@@ -8,25 +8,36 @@ TACTIC is a deep learning framework for classifying enzyme kinetic mechanisms fr
 |--------|----------|-------------|
 | Random baseline | 10.0% | 10-class random guess |
 | Classical (AIC) | 38.6% | Akaike Information Criterion model selection |
-| **TACTIC v3** | **62.0%** | Multi-task transformer with cross-condition attention |
+| **TACTIC v3** | **62.0%** | +23.4 percentage points vs classical |
 
-On real experimental data from 5 enzymes across 4 independent labs:
-- **TACTIC v3**: 80% accuracy (4/5 correct), 85.4% average confidence
+**Real experimental data** (5 enzymes, 4 independent labs):
+- **TACTIC**: 80% accuracy (4/5 correct), deterministic predictions
 - **Classical AIC**: 0-20% accuracy, non-deterministic across runs
+
+TACTIC is **134× faster** than classical model fitting.
+
+## The Multi-Condition Requirement
+
+Single kinetic curves cannot discriminate mechanisms. Consider competitive vs uncompetitive inhibition—both reduce velocity at any single inhibitor concentration. The discriminative signal emerges only by comparing how kinetics change across conditions:
+
+- **Competitive**: High substrate overcomes inhibition (Km increases, Vmax unchanged)
+- **Uncompetitive**: High substrate worsens inhibition (both Km and Vmax decrease)
+
+Our experiments confirm: 1 condition achieves ~12.8% accuracy (near random); 7-10 conditions are needed for reliable classification.
 
 ## Supported Mechanisms
 
 TACTIC classifies 10 enzyme mechanisms organized into 5 families:
 
-| Family | Mechanisms | Description |
-|--------|------------|-------------|
-| **Simple** | Michaelis-Menten Irreversible | E + S ⇌ ES → E + P |
-| **Reversible** | MM Reversible, Product Inhibition | Reversible catalysis with product effects |
-| **Inhibited** | Competitive, Uncompetitive, Mixed | Classic inhibition patterns |
-| **Substrate-Regulated** | Substrate Inhibition | Excess substrate forms inactive ESS complex |
-| **Bisubstrate** | Ordered Bi-Bi, Random Bi-Bi, Ping-Pong | Two-substrate mechanisms |
+| Family | Mechanisms | Per-Mechanism Accuracy |
+|--------|------------|------------------------|
+| **Simple** | MM Irreversible | 99% |
+| **Reversible** | MM Reversible, Product Inhibition | 54%, 82% |
+| **Inhibited** | Competitive, Uncompetitive, Mixed | 61%, 61%, 36% |
+| **Substrate-Regulated** | Substrate Inhibition | 97% |
+| **Bisubstrate** | Ordered Bi-Bi, Random Bi-Bi, Ping-Pong | 32%, 41%, 57% |
 
-Family-level accuracy reaches **99.6%**, meaning errors occur within biochemically similar subtypes.
+**Family-level accuracy: 99.6%** — errors occur within biochemically similar subtypes, not between mechanistically different types.
 
 ## Installation
 
@@ -58,9 +69,9 @@ for name, mech in mechanisms.items():
 # Create model
 model = create_multi_task_model(
     n_mechanisms=10,
-    d_model=128,
-    n_heads=4,
-    n_traj_layers=2,
+    d_model=256,
+    n_heads=8,
+    n_traj_layers=3,
     n_cross_layers=3,
 )
 
@@ -74,48 +85,50 @@ model.load_state_dict(checkpoint['model_state_dict'])
 ### Generate Training Data
 
 ```bash
-python train.py --version v3 --n-samples 80000 --generate-only
+python train.py --version v3 --n-samples 50000 --generate-only
 ```
 
 ### Train Model
 
 ```bash
 # v3 (recommended)
-python train.py --version v3 --epochs 100 --batch-size 64 --lr 1e-4
+python train.py --version v3 --epochs 50 --batch-size 32 --lr 1e-3
 
 # With multi-GPU
-CUDA_VISIBLE_DEVICES=0,1,2,3 python train.py --version v3 --epochs 100
+CUDA_VISIBLE_DEVICES=0,1,2,3 python train.py --version v3 --epochs 50
 ```
 
 ### Model Versions
 
-| Version | Architecture | Accuracy | Key Features |
+| Version | Key Features | Accuracy | vs Classical |
 |---------|--------------|----------|--------------|
-| v0 | Single-curve baseline | 22% | One trajectory only |
-| v1 | Basic multi-condition | 50% | 5 conditions, cross-attention |
-| v2 | Improved multi-condition | 56% | 20 conditions, derived features, pairwise |
-| v3 | Multi-task learning | 62% | Auxiliary heads for family, kinetics |
+| v0 | Single curve only | 10.6% | -28.0% |
+| v1 | Multi-condition (5 cond) | 50.1% | +11.5% |
+| v2 | +Derived features (20 cond) | 56.1% | +17.5% |
+| v3 | +Auxiliary losses | **62.0%** | **+23.4%** |
 
 ## Architecture
 
-TACTIC uses a transformer-based architecture with:
+TACTIC uses a transformer-based architecture (~2.1M parameters):
 
-1. **Trajectory Encoder**: Processes individual time-course curves with 1D convolutions and self-attention
-2. **Condition Encoder**: Embeds experimental conditions (T, pH, [S]₀, [E]₀, [I]₀, etc.)
-3. **Derived Feature Encoder**: Extracts kinetic signatures (v₀, t½, curvature, rate ratios)
-4. **Cross-Condition Attention**: Compares how kinetics change across conditions
-5. **Pairwise Comparison**: Explicit pairwise condition differences
-6. **Classification Heads**: Mechanism prediction with optional auxiliary tasks
+1. **Trajectory Encoder**: Conv1D (kernels 3,5,7) + 3-layer Transformer with positional embeddings
+2. **Condition Encoder**: MLP to embed experimental parameters ([S]₀, [E]₀, [I], temperature)
+3. **Derived Feature Encoder**: Kinetic signatures (v₀, t½, final conversion)
+4. **Cross-Condition Attention**: 3-layer Transformer enabling trajectories to attend to each other
+5. **Pairwise Comparison**: MLP + 2-layer Self-attention
+6. **Classification Head**: MLP (256→128→10)
 
 ```
-Input: N conditions × T timepoints × F features
+Input: K conditions × T timepoints (K ∈ [5,20], T ∈ [20,50])
   ↓
-[Trajectory Encoder] → per-condition embeddings
+[Trajectory Encoder] → per-condition embeddings (d=256)
   ↓
-[Cross-Condition Attention] → mechanism-discriminative features
+[Cross-Condition Attention] → learns which condition comparisons are informative
   ↓
-[Classification Head] → mechanism probabilities
+[Attention-Weighted Pooling + MLP] → mechanism probabilities
 ```
+
+**Ablation results**: Cross-attention is critical (−7.8% without it), confirming that mechanism discrimination requires explicit comparison across conditions.
 
 ## Experiments
 
@@ -147,36 +160,44 @@ python scripts/experiments/real_data_evaluation.py
 ## Key Findings
 
 ### Confidence Calibration
-When TACTIC reports >90% confidence, it achieves **98% accuracy** (ECE = 0.064).
+TACTIC is well-calibrated (ECE = 0.064). When confidence >90%, accuracy is **98%**, enabling reliable triage of uncertain cases.
 
 ### Condition Requirements
-- 1 condition: ~13% (insufficient)
-- 5 conditions: ~33%
-- 10 conditions: ~58%
-- 20 conditions: ~62%
+| Conditions | Accuracy |
+|------------|----------|
+| 1 | 12.8% (≈ random) |
+| 5 | ~33% |
+| 7 | ~50% |
+| 10 | ~58% |
+| 20 | 62% |
 
 **Recommendation**: 7-10 experimental conditions provide the best accuracy/effort tradeoff.
 
 ### Noise Robustness
-Only **4.1% accuracy degradation** at 30% measurement noise, suitable for real experimental data.
+Only **4.1% accuracy degradation** at 30% measurement noise—suitable for real experimental data with typical 5-15% error.
 
-### Common Confusions
-Errors occur between biochemically similar mechanisms:
-- Competitive ↔ Uncompetitive inhibition
-- Ordered Bi-Bi ↔ Ping-Pong
-- MM Reversible ↔ Product Inhibition
+### Confusion Patterns
+Errors align with theoretical identifiability constraints:
 
-These reflect fundamental ambiguities in the underlying kinetic patterns.
+| Confused Pair | Mutual Confusion Rate |
+|---------------|----------------------|
+| Competitive ↔ Uncompetitive | 32.5% |
+| Ordered Bi-Bi ↔ Ping-Pong | 32.5% |
+| MM Reversible ↔ Product Inhibition | 32.0% |
+| Ordered Bi-Bi ↔ Random Bi-Bi | 31.0% |
+| Competitive ↔ Mixed | 24.5% |
+
+These reflect fundamental biochemical ambiguities—mechanisms non-identifiable under single conditions remain challenging even with multi-condition data.
 
 ## Data Sources
 
-TACTIC integrates with standard enzyme kinetics databases:
+Training data is generated by numerically integrating mechanistic ODEs with parameters sampled from experimental databases:
 
 | Source | Data Type | Access |
 |--------|-----------|--------|
-| [eQuilibrator](https://equilibrator.weizmann.ac.il/) | Thermodynamic ΔG values | Python API |
 | [BRENDA](https://www.brenda-enzymes.org/) | Km, kcat, Ki parameters | SOAP API |
 | [SABIO-RK](http://sabiork.h-its.org/) | Kinetic rate laws | REST API |
+| [eQuilibrator](https://equilibrator.weizmann.ac.il/) | Thermodynamic ΔG values | Python API |
 | [EnzymeML](https://enzymeml.org/) | Standardized kinetic data | OMEX files |
 
 See [DATA_SOURCES.md](DATA_SOURCES.md) for detailed access instructions.
@@ -209,19 +230,6 @@ tactic/
 ├── results/                # Experiment results and analysis
 ├── examples/               # Usage examples
 └── tests/                  # Unit tests
-```
-
-## Citation
-
-If you use TACTIC in your research, please cite:
-
-```bibtex
-@article{tactic2024,
-  title={TACTIC: Transformer Architecture for Classifying Thermodynamic and Inhibition Characteristics of Enzyme Mechanisms},
-  author={Anonymous},
-  journal={Submitted},
-  year={2024}
-}
 ```
 
 ## License

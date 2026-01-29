@@ -1,0 +1,31 @@
+{
+  "results": [
+    {
+      "n_conditions": 1,
+      "tactic_accuracy": 0.216,
+      "classical_accuracy": 0.212
+    },
+    {
+      "n_conditions": 2,
+      "tactic_accuracy": 0.302,
+      "classical_accuracy": 0.25
+    },
+    {
+      "n_conditions": 3,
+      "tactic_accuracy": 0.312,
+      "classical_accuracy": 0.242
+    },
+    {
+      "n_conditions": 5,
+      "tactic_accuracy": 0.488,
+      "classical_accuracy": 0.268
+    }
+  ],
+  "n_samples": 500,
+  "n_conditions_tested": [
+    1,
+    2,
+    3,
+    5
+  ]
+}

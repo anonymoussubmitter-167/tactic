@@ -1,0 +1,146 @@
+{
+  "version": "v3",
+  "n_datasets": 6,
+  "mechanism_accuracy": 0.16666666666666666,
+  "family_accuracy": 0.6666666666666666,
+  "results": [
+    {
+      "name": "XO_Allopurinol_Competitive_Inhibition_Simulated",
+      "expected": "competitive_inhibition",
+      "expected_family": "inhibited",
+      "predicted": "mixed_inhibition",
+      "predicted_family": "inhibited",
+      "confidence": 0.43980923295021057,
+      "correct": false,
+      "family_correct": true,
+      "all_probs": {
+        "michaelis_menten_irreversible": 0.006244427990168333,
+        "michaelis_menten_reversible": 0.3400723934173584,
+        "competitive_inhibition": 0.1178903877735138,
+        "uncompetitive_inhibition": 0.03504461422562599,
+        "mixed_inhibition": 0.43980923295021057,
+        "substrate_inhibition": 0.01247024443000555,
+        "ordered_bi_bi": 0.007335944101214409,
+        "random_bi_bi": 0.03761286661028862,
+        "ping_pong": 0.0029182916041463614,
+        "product_inhibition": 0.0006016026600264013
+      },
+      "n_conditions": 20
+    },
+    {
+      "name": "Mixed_Inhibition_Simulated",
+      "expected": "mixed_inhibition",
+      "expected_family": "inhibited",
+      "predicted": "mixed_inhibition",
+      "predicted_family": "inhibited",
+      "confidence": 0.5165683031082153,
+      "correct": true,
+      "family_correct": true,
+      "all_probs": {
+        "michaelis_menten_irreversible": 0.0006068809307180345,
+        "michaelis_menten_reversible": 0.1544167846441269,
+        "competitive_inhibition": 0.2675805389881134,
+        "uncompetitive_inhibition": 0.04038078710436821,
+        "mixed_inhibition": 0.5165683031082153,
+        "substrate_inhibition": 0.006323780864477158,
+        "ordered_bi_bi": 0.0020429727155715227,
+        "random_bi_bi": 0.010251854546368122,
+        "ping_pong": 0.0007841786718927324,
+        "product_inhibition": 0.0010438946774229407
+      },
+      "n_conditions": 20
+    },
+    {
+      "name": "LDH_Ordered_BiBi_Simulated",
+      "expected": "ordered_bi_bi",
+      "expected_family": "bisubstrate",
+      "predicted": "random_bi_bi",
+      "predicted_family": "bisubstrate",
+      "confidence": 0.4607703387737274,
+      "correct": false,
+      "family_correct": true,
+      "all_probs": {
+        "michaelis_menten_irreversible": 0.00017532327910885215,
+        "michaelis_menten_reversible": 0.006497345864772797,
+        "competitive_inhibition": 0.001099088811315596,
+        "uncompetitive_inhibition": 0.0004856782325077802,
+        "mixed_inhibition": 0.005650005303323269,
+        "substrate_inhibition": 0.0004178853705525398,
+        "ordered_bi_bi": 0.3143976032733917,
+        "random_bi_bi": 0.4607703387737274,
+        "ping_pong": 0.21044467389583588,
+        "product_inhibition": 6.205145473359153e-05
+      },
+      "n_conditions": 20
+    },
+    {
+      "name": "AAT_PingPong_Simulated",
+      "expected": "ping_pong",
+      "expected_family": "bisubstrate",
+      "predicted": "random_bi_bi",
+      "predicted_family": "bisubstrate",
+      "confidence": 0.4055887758731842,
+      "correct": false,
+      "family_correct": true,
+      "all_probs": {
+        "michaelis_menten_irreversible": 2.8749140255968086e-05,
+        "michaelis_menten_reversible": 0.0006357176462188363,
+        "competitive_inhibition": 0.00028828447102569044,
+        "uncompetitive_inhibition": 0.00024862863938324153,
+        "mixed_inhibition": 0.000934378884267062,
+        "substrate_inhibition": 0.0001158157319878228,
+        "ordered_bi_bi": 0.2947286069393158,
+        "random_bi_bi": 0.4055887758731842,
+        "ping_pong": 0.29740574955940247,
+        "product_inhibition": 2.527165815990884e-05
+      },
+      "n_conditions": 20
+    },
+    {
+      "name": "Hexokinase_Product_Inhibition_Simulated",
+      "expected": "product_inhibition",
+      "expected_family": "reversible",
+      "predicted": "random_bi_bi",
+      "predicted_family": "bisubstrate",
+      "confidence": 0.5346894860267639,
+      "correct": false,
+      "family_correct": false,
+      "all_probs": {
+        "michaelis_menten_irreversible": 7.150064629968256e-05,
+        "michaelis_menten_reversible": 0.0028599645011126995,
+        "competitive_inhibition": 0.00046884879702702165,
+        "uncompetitive_inhibition": 0.00043523896601982415,
+        "mixed_inhibition": 0.0015985060017555952,
+        "substrate_inhibition": 0.00013795998529531062,
+        "ordered_bi_bi": 0.2760998010635376,
+        "random_bi_bi": 0.5346894860267639,
+        "ping_pong": 0.18361131846904755,
+        "product_inhibition": 2.7335450795362704e-05
+      },
+      "n_conditions": 6
+    },
+    {
+      "name": "AChE_Substrate_Inhibition_Simulated",
+      "expected": "substrate_inhibition",
+      "expected_family": "substrate_regulated",
+      "predicted": "michaelis_menten_irreversible",
+      "predicted_family": "simple",
+      "confidence": 0.8592548966407776,
+      "correct": false,
+      "family_correct": false,
+      "all_probs": {
+        "michaelis_menten_irreversible": 0.8592548966407776,
+        "michaelis_menten_reversible": 0.06199406832456589,
+        "competitive_inhibition": 0.002250781748443842,
+        "uncompetitive_inhibition": 0.0020211332011967897,
+        "mixed_inhibition": 0.0029246648773550987,
+        "substrate_inhibition": 0.051988035440444946,
+        "ordered_bi_bi": 0.006006353534758091,
+        "random_bi_bi": 0.011624963022768497,
+        "ping_pong": 0.001884634606540203,
+        "product_inhibition": 5.04592499055434e-05
+      },
+      "n_conditions": 11
+    }
+  ]
+}
